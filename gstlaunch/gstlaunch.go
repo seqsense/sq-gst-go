@@ -109,6 +109,8 @@ func New(launch string) *GstLaunch {
 
 	cPointerMapIndex++
 
+	fmt.Printf("new gstlaunch (%+v)", cPointerMap)
+
 	return l
 }
 
