@@ -9,29 +9,37 @@ import (
 // #include <stdio.h>
 // #include <gst/gst.h>
 //
-// typedef void* Mainloop;
+// typedef struct
+// {
+//   GMainLoop *mainloop;
+//   int user;
+// } Context;
 //
-// void init()
+// extern void goCbEOS(int);
+// extern void goCbError(int);
+//
+// static void init()
 // {
 //   int argc = 1;
 //   char *exec_name = "rtsp_receiver";
 //   char **argv = &exec_name;
 //   gst_init(&argc, &argv);
 // }
-// gboolean cbMessage(GstBus *bus, GstMessage *msg, gpointer p)
+// static gboolean cbMessage(GstBus *bus, GstMessage *msg, gpointer p)
 // {
-//   GMainLoop *mainloop = (GMainLoop*)p;
+//   Context *ctx = (Context*)p;
 //
 //   if ((GST_MESSAGE_TYPE(msg) & GST_MESSAGE_EOS))
-//     g_main_loop_quit(mainloop);
+//     goCbEOS(ctx->user);
 //
 //   if ((GST_MESSAGE_TYPE(msg) & GST_MESSAGE_ERROR))
-//     g_main_loop_quit(mainloop);
+//     goCbError(ctx->user);
 //
 //   return TRUE;
 // }
-// Mainloop create(const char *launch)
+// static Context *create(const char *launch, int user_data)
 // {
+//   Context *ctx;
 //   GMainLoop *mainloop;
 //   GstElement *pipeline;
 //   GError *err = NULL;
@@ -52,17 +60,19 @@ import (
 //
 //   gst_element_set_state(pipeline, GST_STATE_PLAYING);
 //
-//   return mainloop;
+//   ctx = malloc(sizeof(Context));
+//   ctx->mainloop = mainloop;
+//   ctx->user = user_data;
+//
+//   return ctx;
 // }
-// void mainloopRun(Mainloop p)
+// static void mainloopRun(Context *p)
 // {
-//   GMainLoop *mainloop = (GMainLoop*)p;
-//   g_main_loop_run(mainloop);
+//   g_main_loop_run(p->mainloop);
 // }
-// void mainloopKill(Mainloop p)
+// static void mainloopKill(Context *p)
 // {
-//   GMainLoop *mainloop = (GMainLoop*)p;
-//   g_main_loop_quit(mainloop);
+//   g_main_loop_quit(p->mainloop);
 // }
 import "C"
 
@@ -71,26 +81,63 @@ func init() {
 }
 
 type GstLaunch struct {
-	mainloop C.Mainloop
-	quit     chan bool
-	active   bool
+	ctx     *C.Context
+	quit    chan bool
+	active  bool
+	cbEOS   func(*GstLaunch)
+	cbError func(*GstLaunch)
 }
+
+var (
+	cPointerMap          = make(map[int]*GstLaunch)
+	cPointerMapIndex int = 0
+)
 
 func New(launch string) *GstLaunch {
 	c_launch := C.CString(launch)
 	defer C.free(unsafe.Pointer(c_launch))
 
-	mainloop := C.create(c_launch)
-	if mainloop == nil {
+	l := &GstLaunch{quit: make(chan bool, 1), active: false, cbEOS: nil, cbError: nil}
+	cPointerMap[cPointerMapIndex] = l
+
+	ctx := C.create(c_launch, C.int(cPointerMapIndex))
+	if ctx == nil {
 		panic("Failed to parse gst-launch text")
 	}
+	l.ctx = ctx
 
-	return &GstLaunch{mainloop: mainloop, quit: make(chan bool, 1)}
+	cPointerMapIndex++
+
+	return l
+}
+
+func (s *GstLaunch) RegisterErrorCallback(f func(*GstLaunch)) {
+	s.cbError = f
+}
+
+func (s *GstLaunch) RegisterEOSCallback(f func(*GstLaunch)) {
+	s.cbEOS = f
+}
+
+//export goCbEOS
+func goCbEOS(i C.int) {
+	s := cPointerMap[int(i)]
+	if s.cbEOS != nil {
+		s.cbEOS(s)
+	}
+}
+
+//export goCbError
+func goCbError(i C.int) {
+	s := cPointerMap[int(i)]
+	if s.cbError != nil {
+		s.cbError(s)
+	}
 }
 
 func (s *GstLaunch) Run() {
 	s.active = true
-	C.mainloopRun(s.mainloop)
+	C.mainloopRun(s.ctx)
 	s.quit <- true
 	s.active = false
 }
@@ -98,9 +145,8 @@ func (s *GstLaunch) Run() {
 func (s *GstLaunch) Wait() {
 	<-s.quit
 }
-
 func (s *GstLaunch) Kill() {
-	C.mainloopKill(s.mainloop)
+	C.mainloopKill(s.ctx)
 }
 
 func (s *GstLaunch) Active() bool {
