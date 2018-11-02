@@ -64,6 +64,7 @@ import (
 //   ctx = malloc(sizeof(Context));
 //   ctx->mainloop = mainloop;
 //   ctx->user = user_data;
+//   fprintf(stderr, "user_data: %d\n", ctx->user);
 //
 //   return ctx;
 // }
@@ -109,7 +110,7 @@ func New(launch string) *GstLaunch {
 
 	cPointerMapIndex++
 
-	fmt.Printf("new gstlaunch (%+v)", cPointerMap)
+	fmt.Printf("new gstlaunch (%+v)\n", cPointerMap)
 
 	return l
 }
