@@ -74,13 +74,15 @@ import (
 //
 //   return ctx;
 // }
-// static void mainloopRun(Context *p)
+// static void mainloopRun(Context *ctx)
 // {
-//   g_main_loop_run(p->mainloop);
+//   fprintf(stderr, "run user_data: %d\n", ctx->user);
+//   g_main_loop_run(ctx->mainloop);
 // }
-// static void mainloopKill(Context *p)
+// static void mainloopKill(Context *ctx)
 // {
-//   g_main_loop_quit(p->mainloop);
+//   fprintf(stderr, "kill user_data: %d\n", ctx->user);
+//   g_main_loop_quit(ctx->mainloop);
 // }
 import "C"
 
