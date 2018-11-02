@@ -31,10 +31,16 @@ import (
 //   Context *ctx = (Context*)p;
 //
 //   if ((GST_MESSAGE_TYPE(msg) & GST_MESSAGE_EOS))
+//   {
+//     fprintf(stderr, "callback user_data: %d\n", ctx->user);
 //     goCbEOS(ctx->user);
+//   }
 //
 //   if ((GST_MESSAGE_TYPE(msg) & GST_MESSAGE_ERROR))
+//   {
+//     fprintf(stderr, "callback user_data: %d\n", ctx->user);
 //     goCbError(ctx->user);
+//   }
 //
 //   return TRUE;
 // }
