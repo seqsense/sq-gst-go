@@ -13,6 +13,7 @@ import (
 // typedef struct
 // {
 //   GMainLoop *mainloop;
+//   GstElement *pipeline;
 //   int user_int;
 // } Context;
 //
@@ -57,6 +58,7 @@ import (
 //   }
 //   ctx = malloc(sizeof(Context));
 //   ctx->mainloop = mainloop;
+//   ctx->pipeline = pipeline;
 //   ctx->user_int = user_int;
 //
 //   bus = gst_element_get_bus(pipeline);
@@ -73,6 +75,8 @@ import (
 // }
 // static void mainloopKill(Context *ctx)
 // {
+//   gst_element_set_state(ctx->pipeline, GST_STATE_NULL);
+//   gst_object_unref(ctx->pipeline);
 //   g_main_loop_quit(ctx->mainloop);
 // }
 import "C"
