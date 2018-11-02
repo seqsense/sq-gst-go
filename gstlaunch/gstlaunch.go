@@ -133,6 +133,7 @@ func (s *GstLaunch) RegisterEOSCallback(f func(*GstLaunch)) {
 
 //export goCbEOS
 func goCbEOS(i C.int) {
+	fmt.Printf("cbEOS user_data: %v, %d", i, int(i))
 	s, ok := cPointerMap[int(i)]
 	if !ok {
 		panic(fmt.Errorf("Failed to map pointer from cgo func (%d)", int(i)))
@@ -144,6 +145,7 @@ func goCbEOS(i C.int) {
 
 //export goCbError
 func goCbError(i C.int) {
+	fmt.Printf("cbError user_data: %v, %d", i, int(i))
 	s, ok := cPointerMap[int(i)]
 	if !ok {
 		panic(fmt.Errorf("Failed to map pointer from cgo func (%d)", int(i)))
