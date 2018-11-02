@@ -2,12 +2,12 @@ package gstlaunch
 
 import (
 	"fmt"
+	"runtime"
 	"unsafe"
 )
 
 // #cgo pkg-config: gobject-2.0 gstreamer-1.0 gstreamer-base-1.0 gstreamer-rtsp-server-1.0 gstreamer-rtsp-1.0
 // #include <stdlib.h>
-// #include <stdio.h>
 // #include <gst/gst.h>
 //
 // typedef struct
@@ -109,9 +109,13 @@ func New(launch string) *GstLaunch {
 
 	cPointerMapIndex++
 
-	fmt.Printf("new gstlaunch (%+v)\n", cPointerMap)
+	runtime.SetFinalizer(l, finalizeGstLaunch)
 
 	return l
+}
+
+func finalizeGstLaunch(s *GstLaunch) {
+	C.free(unsafe.Pointer(s.ctx))
 }
 
 func (s *GstLaunch) RegisterErrorCallback(f func(*GstLaunch)) {
