@@ -67,7 +67,7 @@ import (
 //
 //   gst_element_set_state(pipeline, GST_STATE_PLAYING);
 //
-//   ctx = malloc(sizeof(Context));
+//   ctx = malloc(sizeof(Context)+8);
 //   ctx->mainloop = mainloop;
 //   ctx->user = user_data;
 //   fprintf(stderr, "user_data: %d\n", ctx->user);
@@ -133,7 +133,7 @@ func (s *GstLaunch) RegisterEOSCallback(f func(*GstLaunch)) {
 
 //export goCbEOS
 func goCbEOS(i C.int) {
-	fmt.Printf("cbEOS user_data: %v, %d", i, int(i))
+	fmt.Printf("cbEOS user_data: %v, %d\n", i, int(i))
 	s, ok := cPointerMap[int(i)]
 	if !ok {
 		panic(fmt.Errorf("Failed to map pointer from cgo func (%d)", int(i)))
@@ -145,7 +145,7 @@ func goCbEOS(i C.int) {
 
 //export goCbError
 func goCbError(i C.int) {
-	fmt.Printf("cbError user_data: %v, %d", i, int(i))
+	fmt.Printf("cbError user_data: %v, %d\n", i, int(i))
 	s, ok := cPointerMap[int(i)]
 	if !ok {
 		panic(fmt.Errorf("Failed to map pointer from cgo func (%d)", int(i)))
