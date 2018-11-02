@@ -146,7 +146,7 @@ func goCbError(i C.int) {
 
 func (s *GstLaunch) Run() {
 	s.active = true
-	C.mainloopRun(s.ctx)
+	C.mainloopRun(unsafe.Pointer(s.ctx))
 	s.quit <- true
 	s.active = false
 }
@@ -155,7 +155,7 @@ func (s *GstLaunch) Wait() {
 	<-s.quit
 }
 func (s *GstLaunch) Kill() {
-	C.mainloopKill(s.ctx)
+	C.mainloopKill(unsafe.Pointer(s.ctx))
 }
 
 func (s *GstLaunch) Active() bool {
