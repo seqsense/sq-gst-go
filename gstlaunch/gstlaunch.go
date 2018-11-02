@@ -13,7 +13,7 @@ import (
 // typedef struct
 // {
 //   GMainLoop *mainloop;
-//   int user;
+//   int user_int;
 // } Context;
 //
 // extern void goCbEOS(int);
@@ -31,20 +31,14 @@ import (
 //   Context *ctx = (Context*)p;
 //
 //   if ((GST_MESSAGE_TYPE(msg) & GST_MESSAGE_EOS))
-//   {
-//     fprintf(stderr, "callback user_data: %d\n", ctx->user);
-//     goCbEOS(ctx->user);
-//   }
+//     goCbEOS(ctx->user_int);
 //
 //   if ((GST_MESSAGE_TYPE(msg) & GST_MESSAGE_ERROR))
-//   {
-//     fprintf(stderr, "callback user_data: %d\n", ctx->user);
-//     goCbError(ctx->user);
-//   }
+//     goCbError(ctx->user_int);
 //
 //   return TRUE;
 // }
-// static Context *create(const char *launch, int user_data)
+// static Context *create(const char *launch, int user_int)
 // {
 //   Context *ctx;
 //   GMainLoop *mainloop;
@@ -62,26 +56,23 @@ import (
 //     return NULL;
 //   }
 //   bus = gst_element_get_bus(pipeline);
-//   gst_bus_add_watch(bus, cbMessage, mainloop);
+//   gst_bus_add_watch(bus, cbMessage, ctx);
 //   g_object_unref(bus);
 //
 //   gst_element_set_state(pipeline, GST_STATE_PLAYING);
 //
-//   ctx = malloc(sizeof(Context)+8);
+//   ctx = malloc(sizeof(Context));
 //   ctx->mainloop = mainloop;
-//   ctx->user = user_data;
-//   fprintf(stderr, "user_data: %d\n", ctx->user);
+//   ctx->user_int = user_int;
 //
 //   return ctx;
 // }
 // static void mainloopRun(Context *ctx)
 // {
-//   fprintf(stderr, "run user_data: %d\n", ctx->user);
 //   g_main_loop_run(ctx->mainloop);
 // }
 // static void mainloopKill(Context *ctx)
 // {
-//   fprintf(stderr, "kill user_data: %d\n", ctx->user);
 //   g_main_loop_quit(ctx->mainloop);
 // }
 import "C"
@@ -133,7 +124,6 @@ func (s *GstLaunch) RegisterEOSCallback(f func(*GstLaunch)) {
 
 //export goCbEOS
 func goCbEOS(i C.int) {
-	fmt.Printf("cbEOS user_data: %v, %d\n", i, int(i))
 	s, ok := cPointerMap[int(i)]
 	if !ok {
 		panic(fmt.Errorf("Failed to map pointer from cgo func (%d)", int(i)))
@@ -145,7 +135,6 @@ func goCbEOS(i C.int) {
 
 //export goCbError
 func goCbError(i C.int) {
-	fmt.Printf("cbError user_data: %v, %d\n", i, int(i))
 	s, ok := cPointerMap[int(i)]
 	if !ok {
 		panic(fmt.Errorf("Failed to map pointer from cgo func (%d)", int(i)))
