@@ -1,6 +1,7 @@
 package gstlaunch
 
 import (
+	"fmt"
 	"unsafe"
 )
 
@@ -121,7 +122,10 @@ func (s *GstLaunch) RegisterEOSCallback(f func(*GstLaunch)) {
 
 //export goCbEOS
 func goCbEOS(i C.int) {
-	s := cPointerMap[int(i)]
+	s, ok := cPointerMap[int(i)]
+	if !ok {
+		panic(fmt.Errorf("Failed to map pointer from cgo func (%d)", int(i)))
+	}
 	if s.cbEOS != nil {
 		s.cbEOS(s)
 	}
@@ -129,7 +133,10 @@ func goCbEOS(i C.int) {
 
 //export goCbError
 func goCbError(i C.int) {
-	s := cPointerMap[int(i)]
+	s, ok := cPointerMap[int(i)]
+	if !ok {
+		panic(fmt.Errorf("Failed to map pointer from cgo func (%d)", int(i)))
+	}
 	if s.cbError != nil {
 		s.cbError(s)
 	}
