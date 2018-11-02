@@ -55,15 +55,15 @@ import (
 //     g_object_unref(mainloop);
 //     return NULL;
 //   }
+//   ctx = malloc(sizeof(Context));
+//   ctx->mainloop = mainloop;
+//   ctx->user_int = user_int;
+//
 //   bus = gst_element_get_bus(pipeline);
 //   gst_bus_add_watch(bus, cbMessage, ctx);
 //   g_object_unref(bus);
 //
 //   gst_element_set_state(pipeline, GST_STATE_PLAYING);
-//
-//   ctx = malloc(sizeof(Context));
-//   ctx->mainloop = mainloop;
-//   ctx->user_int = user_int;
 //
 //   return ctx;
 // }
