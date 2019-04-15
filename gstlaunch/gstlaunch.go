@@ -6,7 +6,7 @@ import (
 	"unsafe"
 )
 
-// #cgo pkg-config: gobject-2.0 gstreamer-1.0 gstreamer-base-1.0 gstreamer-rtsp-server-1.0 gstreamer-rtsp-1.0
+// #cgo pkg-config: gobject-2.0 gstreamer-1.0 gstreamer-base-1.0
 // #include <stdlib.h>
 // #include <gst/gst.h>
 //
@@ -23,7 +23,7 @@ import (
 // static void init()
 // {
 //   int argc = 1;
-//   char *exec_name = "rtsp_receiver";
+//   char *exec_name = "sq-gst-go";
 //   char **argv = &exec_name;
 //   gst_init(&argc, &argv);
 // }
