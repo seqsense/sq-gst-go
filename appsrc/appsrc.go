@@ -5,14 +5,14 @@ package appsrc
 import "C"
 
 import (
-	"github.com/seqsense/sq-gst-go/types"
+	gst "github.com/seqsense/sq-gst-go"
 )
 
 type AppSrc struct {
-	element *types.GstElement
+	element *gst.GstElement
 }
 
-func New(e *types.GstElement) *AppSrc {
+func New(e *gst.GstElement) *AppSrc {
 	s := &AppSrc{
 		element: e,
 	}

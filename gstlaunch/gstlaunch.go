@@ -5,7 +5,7 @@ import (
 	"runtime"
 	"unsafe"
 
-	"github.com/seqsense/sq-gst-go/types"
+	gst "github.com/seqsense/sq-gst-go"
 )
 
 // #cgo pkg-config: gobject-2.0 gstreamer-1.0 gstreamer-base-1.0
@@ -104,7 +104,7 @@ func (s *GstLaunch) Active() bool {
 	return s.active
 }
 
-func (s *GstLaunch) GetElement(name string) (*types.GstElement, error) {
+func (s *GstLaunch) GetElement(name string) (*gst.GstElement, error) {
 	c_name := C.CString(name)
 	defer C.free(unsafe.Pointer(c_name))
 
@@ -112,5 +112,5 @@ func (s *GstLaunch) GetElement(name string) (*types.GstElement, error) {
 	if e == nil {
 		return nil, fmt.Errorf("Failed to get %s", name)
 	}
-	return types.NewGstElement(unsafe.Pointer(e)), nil
+	return gst.NewGstElement(unsafe.Pointer(e)), nil
 }

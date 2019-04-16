@@ -9,13 +9,13 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/seqsense/sq-gst-go/types"
+	gst "github.com/seqsense/sq-gst-go"
 )
 
 type SinkBufferHandler func([]byte, int)
 
 type AppSink struct {
-	element *types.GstElement
+	element *gst.GstElement
 	id      int32
 }
 type AppSinkHandlerInfo struct {
@@ -32,7 +32,7 @@ func init() {
 	handlers = make(map[int32]*AppSinkHandlerInfo)
 }
 
-func New(e *types.GstElement, cb SinkBufferHandler) *AppSink {
+func New(e *gst.GstElement, cb SinkBufferHandler) *AppSink {
 	id := atomic.AddInt32(&idCnt, 1)
 	s := &AppSink{
 		element: e,
