@@ -101,3 +101,14 @@ func (s *GstLaunch) Active() bool {
 	}
 	return s.active
 }
+
+func (s *GstLaunch) GetElement(name string) (*C.GstElement, error) {
+	c_name := C.CString(name)
+	defer C.free(unsafe.Pointer(c_name))
+
+	e := C.getElement(s.ctx, c_name)
+	if e == nil {
+		return nil, fmt.Errorf("Failed to get %s", name)
+	}
+	return e, nil
+}

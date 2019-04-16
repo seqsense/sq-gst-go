@@ -27,5 +27,6 @@ void init();
 Context* create(const char* launch, int user_int);
 void mainloopRun(Context* ctx);
 void mainloopKill(Context* ctx);
+GstElement* getElement(Context* ctx, const char* name);
 
 #endif  // GSTLAUNCH_H
