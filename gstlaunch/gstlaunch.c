@@ -71,3 +71,7 @@ void mainloopKill(Context* ctx)
   gst_object_unref(ctx->pipeline);
   g_main_loop_quit(ctx->mainloop);
 }
+GstElement* getElement(Context* ctx, const char* name)
+{
+  return gst_bin_get_by_name(GST_BIN(ctx->pipeline), name);
+}
