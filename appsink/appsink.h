@@ -21,10 +21,6 @@ typedef struct
   int id;
 } HandlerUserData;
 
-inline void unrefElement(void* element)
-{
-  gst_object_unref(element);
-}
 void registerBufferHandler(void* element, int id);
 
 #endif  // APPSINK_H

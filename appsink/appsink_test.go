@@ -2,6 +2,7 @@ package appsink
 
 import (
 	"bytes"
+	"runtime"
 	"testing"
 	"time"
 
@@ -20,13 +21,16 @@ func TestAppSrcAppSink(t *testing.T) {
 	sink := New(gstSink, func(b []byte, samples int) {
 		received = b
 	})
-	_ = sink
+	defer sink.Close()
 
 	gstSrc, err := l.GetElement("src")
 	if err != nil {
 		t.Fatalf("appsrc element must be got")
 	}
 	src := appsrc.New(gstSrc)
+
+	// Any used objects must not finalized
+	runtime.GC()
 
 	go func() {
 		l.Run()

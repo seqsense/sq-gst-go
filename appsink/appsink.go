@@ -6,7 +6,6 @@ import "C"
 
 import (
 	"fmt"
-	"runtime"
 	"sync/atomic"
 	"unsafe"
 
@@ -43,12 +42,10 @@ func New(e *types.GstElement, cb SinkBufferHandler) *AppSink {
 		handler: cb,
 	}
 	C.registerBufferHandler(e.UnsafePointer(), C.int(id))
-	runtime.SetFinalizer(s, finalizeAppSink)
 	return s
 }
 
-func finalizeAppSink(s *AppSink) {
-	C.unrefElement(s.element.UnsafePointer())
+func (s *AppSink) Close() {
 	delete(handlers, s.id)
 }
 

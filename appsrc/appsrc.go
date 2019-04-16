@@ -5,8 +5,6 @@ package appsrc
 import "C"
 
 import (
-	"runtime"
-
 	"github.com/seqsense/sq-gst-go/types"
 )
 
@@ -18,12 +16,7 @@ func New(e *types.GstElement) *AppSrc {
 	s := &AppSrc{
 		element: e,
 	}
-	runtime.SetFinalizer(s, finalizeAppSrc)
 	return s
-}
-
-func finalizeAppSrc(s *AppSrc) {
-	C.unrefElement(s.element.UnsafePointer())
 }
 
 func (s *AppSrc) PushBuffer(buf []byte) {
