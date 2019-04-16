@@ -1,0 +1,22 @@
+language: go
+
+go:
+  - "1.11"
+  - master
+
+addons:
+  apt:
+    packages:
+    - libgstreamer-plugins-base1.0-dev
+    - libgstreamer1.0-dev
+
+branches:
+  only:
+    - master
+
+install:
+  - go get -t ./...
+script:
+  - go build ./...
+  - go test ./...
+  - go vet ./...
