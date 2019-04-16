@@ -5,7 +5,7 @@ package appsink
 import "C"
 
 import (
-	"fmt"
+	"log"
 	"sync/atomic"
 	"unsafe"
 
@@ -54,6 +54,6 @@ func goBufferHandler(p unsafe.Pointer, len, samples, id C.int) {
 	if h, ok := handlers[int32(id)]; ok {
 		h.handler(C.GoBytes(p, len), int(samples))
 	} else {
-		fmt.Errorf("Unhandled buffer received (id: %d)", int(id))
+		log.Printf("Unhandled buffer received (id: %d)", int(id))
 	}
 }
