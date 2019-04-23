@@ -21,7 +21,7 @@ type GstElement struct {
 type GstState uint8
 
 const (
-	GST_STATE_VOID_PENDING = iota
+	GST_STATE_VOID_PENDING GstState = iota
 	GST_STATE_NULL
 	GST_STATE_READY
 	GST_STATE_PAUSED

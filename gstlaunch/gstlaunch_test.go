@@ -3,6 +3,8 @@ package gstlaunch
 import (
 	"testing"
 	"time"
+
+	gst "github.com/seqsense/sq-gst-go"
 )
 
 func TestGstLaunch(t *testing.T) {
@@ -32,17 +34,15 @@ func TestGstLaunch(t *testing.T) {
 func TestGetElement(t *testing.T) {
 	l := New("audiotestsrc ! queue name=named_elem ! queue ! fakesink")
 
-	go func() {
-		l.Run()
-	}()
-	<-time.After(time.Millisecond * 100)
-
 	e, err := l.GetElement("named_elem")
 	if err != nil {
 		t.Errorf("GstElement for existing element must not return error")
 	}
 	if e == nil {
 		t.Errorf("GstElement for existing element must return pointer")
+	}
+	if s := e.State(); s != gst.GST_STATE_NULL {
+		t.Errorf("GstElement state must be GST_STATE_NULL(%d) at initialization, but got %d", gst.GST_STATE_NULL, s)
 	}
 
 	e_inexistent, err := l.GetElement("inexistent_elem")
@@ -51,6 +51,15 @@ func TestGetElement(t *testing.T) {
 	}
 	if e_inexistent != nil {
 		t.Errorf("GstElement for inexistent element must return nil pointer")
+	}
+
+	go func() {
+		l.Run()
+	}()
+	<-time.After(time.Millisecond * 100)
+
+	if s := e.State(); s != gst.GST_STATE_PLAYING {
+		t.Errorf("GstElement state must be GST_STATE_PLAYING(%d) after Run(), but got %d", gst.GST_STATE_PLAYING, s)
 	}
 
 	l.Kill()
