@@ -57,12 +57,11 @@ Context* create(const char* launch, int user_int)
   gst_bus_add_watch(bus, cbMessage, ctx);
   g_object_unref(bus);
 
-  gst_element_set_state(pipeline, GST_STATE_PLAYING);
-
   return ctx;
 }
 void mainloopRun(Context* ctx)
 {
+  gst_element_set_state(ctx->pipeline, GST_STATE_PLAYING);
   g_main_loop_run(ctx->mainloop);
 }
 void mainloopKill(Context* ctx)
