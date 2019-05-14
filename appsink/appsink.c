@@ -28,6 +28,7 @@ GstFlowReturn bufferHandlerC(GstElement* element, gpointer user_data)
       gsize size = 0;
       gst_buffer_extract_dup(buffer, 0, gst_buffer_get_size(buffer), &copy, &size);
       goBufferHandler(copy, size, GST_BUFFER_DURATION(buffer), ud->id);
+      g_free(copy);
     }
     gst_sample_unref(sample);
   }
