@@ -24,11 +24,12 @@ GstFlowReturn bufferHandlerC(GstElement* element, gpointer user_data)
     GstBuffer* buffer = gst_sample_get_buffer(sample);
     if (buffer)
     {
-      gpointer copy = NULL;
-      gsize size = 0;
-      gst_buffer_extract_dup(buffer, 0, gst_buffer_get_size(buffer), &copy, &size);
-      goBufferHandler(copy, size, GST_BUFFER_DURATION(buffer), ud->id);
-      g_free(copy);
+      GstMapInfo info;
+      if (gst_buffer_map(buffer, &info, GST_MAP_READ))
+      {
+        goBufferHandler(info.data, info.size, GST_BUFFER_DURATION(buffer), ud->id);
+        gst_buffer_unmap(buffer, &info);
+      }
     }
     gst_sample_unref(sample);
   }
