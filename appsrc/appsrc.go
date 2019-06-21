@@ -5,6 +5,8 @@ package appsrc
 import "C"
 
 import (
+	"unsafe"
+
 	gst "github.com/seqsense/sq-gst-go"
 )
 
@@ -20,7 +22,5 @@ func New(e *gst.GstElement) *AppSrc {
 }
 
 func (s *AppSrc) PushBuffer(buf []byte) {
-	c_buf := C.CBytes(buf)
-	defer C.free(c_buf)
-	C.pushBuffer(s.element.UnsafePointer(), c_buf, C.int(len(buf)))
+	C.pushBuffer(s.element.UnsafePointer(), unsafe.Pointer(&buf[0]), C.int(len(buf)))
 }
