@@ -8,26 +8,36 @@ import (
 )
 
 func TestGstLaunch(t *testing.T) {
-	l := New("audiotestsrc ! queue ! fakesink")
-
-	if l.Active() != false {
-		t.Errorf("pipeline must be inactive before Run()")
+	startMethod := map[string]func(l *GstLaunch){
+		"GstLaunch.Run": func(l *GstLaunch) {
+			go l.Run()
+		},
+		"GstLaunch.Start": func(l *GstLaunch) {
+			l.Start()
+		},
 	}
+	for name, start := range startMethod {
+		t.Run(name, func(t *testing.T) {
+			l := New("audiotestsrc ! queue ! fakesink")
 
-	go func() {
-		l.Run()
-	}()
+			if l.Active() != false {
+				t.Errorf("pipeline must be inactive before Run()")
+			}
 
-	<-time.After(time.Millisecond * 100)
-	if l.Active() != true {
-		t.Errorf("pipeline must be active after Run()")
-	}
+			start(l)
 
-	l.Kill()
-	l.Wait()
+			<-time.After(time.Millisecond * 100)
+			if l.Active() != true {
+				t.Errorf("pipeline must be active after Run()")
+			}
 
-	if l.Active() != false {
-		t.Errorf("pipeline must be inactive after Kill()")
+			l.Kill()
+			l.Wait()
+
+			if l.Active() != false {
+				t.Errorf("pipeline must be inactive after Kill()")
+			}
+		})
 	}
 }
 

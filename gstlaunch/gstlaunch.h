@@ -15,7 +15,6 @@
 
 typedef struct
 {
-  GMainLoop* mainloop;
   GstElement* pipeline;
   int user_int;
 } Context;
@@ -23,10 +22,10 @@ typedef struct
 extern void goCbEOS(int id);
 extern void goCbError(int id);
 
-void init();
+void init(char* exec_name);
 Context* create(const char* launch, int user_int);
-void mainloopRun(Context* ctx);
-void mainloopKill(Context* ctx);
+void pipelineStart(Context* ctx);
+void pipelineKill(Context* ctx);
 GstElement* getElement(Context* ctx, const char* name);
 
 #endif  // GSTLAUNCH_H
