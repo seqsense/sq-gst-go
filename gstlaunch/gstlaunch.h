@@ -23,6 +23,7 @@ extern void goCbEOS(int id);
 extern void goCbError(int id);
 
 void init(char* exec_name);
+void runMainloop();
 Context* create(const char* launch, int user_int);
 void pipelineStart(Context* ctx);
 void pipelineKill(Context* ctx);
