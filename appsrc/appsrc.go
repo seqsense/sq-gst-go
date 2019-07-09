@@ -24,3 +24,7 @@ func New(e *gst.GstElement) *AppSrc {
 func (s *AppSrc) PushBuffer(buf []byte) {
 	C.pushBuffer(s.element.UnsafePointer(), unsafe.Pointer(&buf[0]), C.int(len(buf)))
 }
+
+func (s *AppSrc) EOS() {
+	C.sendEOS(s.element.UnsafePointer())
+}
