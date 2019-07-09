@@ -5,6 +5,7 @@ import (
 	"time"
 
 	gst "github.com/seqsense/sq-gst-go"
+	"github.com/seqsense/sq-gst-go/appsrc"
 )
 
 func TestGstLaunch(t *testing.T) {
@@ -29,6 +30,65 @@ func TestGstLaunch(t *testing.T) {
 	if l.Active() != false {
 		t.Errorf("pipeline must be inactive after Kill()")
 	}
+}
+
+func TestGstLaunch_eosHandling(t *testing.T) {
+	eosCh := make(chan struct{})
+
+	l := New("appsrc name=src ! watchdog timeout=150 ! fakesink")
+	l.RegisterEOSCallback(func(l *GstLaunch) {
+		eosCh <- struct{}{}
+	})
+	srcElem, err := l.GetElement("src")
+	if err != nil {
+		t.Fatalf("failed to get appsrc element: %v", err)
+	}
+	src := appsrc.New(srcElem)
+
+	go func() {
+		l.Run()
+	}()
+
+	select {
+	case <-time.After(time.Millisecond * 100):
+	case <-eosCh:
+		t.Errorf("unexpected EOS message")
+	}
+	src.EOS()
+	select {
+	case <-time.After(time.Millisecond * 100):
+		t.Errorf("expected error message, but timed-out")
+	case <-eosCh:
+	}
+
+	l.Kill()
+	l.Wait()
+}
+
+func TestGstLaunch_errorHandling(t *testing.T) {
+	errCh := make(chan struct{})
+
+	l := New("appsrc ! watchdog timeout=150 ! fakesink")
+	l.RegisterErrorCallback(func(l *GstLaunch) {
+		errCh <- struct{}{}
+	})
+	go func() {
+		l.Run()
+	}()
+
+	select {
+	case <-time.After(time.Millisecond * 100):
+	case <-errCh:
+		t.Errorf("unexpected error message")
+	}
+	select {
+	case <-time.After(time.Millisecond * 100):
+		t.Errorf("expected error message, but timed-out")
+	case <-errCh:
+	}
+
+	l.Kill()
+	l.Wait()
 }
 
 func TestGetElement(t *testing.T) {
