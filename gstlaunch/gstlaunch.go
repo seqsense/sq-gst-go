@@ -18,6 +18,8 @@ func init() {
 	n := C.CString(os.Args[0])
 	defer C.free(unsafe.Pointer(n))
 	C.init(n)
+
+	go C.runMainloop()
 }
 
 type GstLaunch struct {

@@ -12,12 +12,21 @@
 
 #include "gstlaunch.h"
 
+GMainLoop* g_mainloop;
+
 void init(char* exec_name)
 {
   int argc = 1;
   char** argv = &exec_name;
   gst_init(&argc, &argv);
+
+  g_mainloop = g_main_loop_new(NULL, FALSE);
 }
+void runMainloop()
+{
+  g_main_loop_run(g_mainloop);
+}
+
 static gboolean cbMessage(GstBus* bus, GstMessage* msg, gpointer p)
 {
   Context* ctx = (Context*)p;
