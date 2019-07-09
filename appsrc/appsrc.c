@@ -17,3 +17,8 @@ void pushBuffer(void* element, void* buffer, int len)
       gst_buffer_new_wrapped(g_memdup(buffer, len), len);
   gst_app_src_push_buffer(GST_APP_SRC(element), buffer_gst);
 }
+
+void sendEOS(void* element)
+{
+  gst_app_src_end_of_stream(GST_APP_SRC(element));
+}

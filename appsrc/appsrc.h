@@ -15,6 +15,7 @@
 #include <gst/app/app.h>
 
 void pushBuffer(void* element, void* buffer, int len);
+void sendEOS(void* element);
 GstState getState(void* element);
 
 #endif  // APPSRC_H
