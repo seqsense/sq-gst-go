@@ -12,13 +12,21 @@
 
 #include "gstlaunch.h"
 
-void init()
+GMainLoop* g_mainloop;
+
+void init(char* exec_name)
 {
   int argc = 1;
-  char* exec_name = "rtsp_receiver";
   char** argv = &exec_name;
   gst_init(&argc, &argv);
+
+  g_mainloop = g_main_loop_new(NULL, FALSE);
 }
+void runMainloop()
+{
+  g_main_loop_run(g_mainloop);
+}
+
 static gboolean cbMessage(GstBus* bus, GstMessage* msg, gpointer p)
 {
   Context* ctx = (Context*)p;
@@ -34,22 +42,17 @@ static gboolean cbMessage(GstBus* bus, GstMessage* msg, gpointer p)
 Context* create(const char* launch, int user_int)
 {
   Context* ctx;
-  GMainLoop* mainloop;
   GstElement* pipeline;
   GError* err = NULL;
   GstBus* bus;
   GstElement* src;
 
-  mainloop = g_main_loop_new(NULL, FALSE);
-
   pipeline = gst_parse_launch(launch, &err);
   if (err != NULL)
   {
-    g_object_unref(mainloop);
     return NULL;
   }
   ctx = malloc(sizeof(Context));
-  ctx->mainloop = mainloop;
   ctx->pipeline = pipeline;
   ctx->user_int = user_int;
 
@@ -59,16 +62,14 @@ Context* create(const char* launch, int user_int)
 
   return ctx;
 }
-void mainloopRun(Context* ctx)
+void pipelineStart(Context* ctx)
 {
   gst_element_set_state(ctx->pipeline, GST_STATE_PLAYING);
-  g_main_loop_run(ctx->mainloop);
 }
-void mainloopKill(Context* ctx)
+void pipelineKill(Context* ctx)
 {
   gst_element_set_state(ctx->pipeline, GST_STATE_NULL);
   gst_object_unref(ctx->pipeline);
-  g_main_loop_quit(ctx->mainloop);
 }
 GstElement* getElement(Context* ctx, const char* name)
 {

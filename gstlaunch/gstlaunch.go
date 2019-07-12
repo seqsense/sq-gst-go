@@ -1,7 +1,9 @@
 package gstlaunch
 
 import (
+	"context"
 	"fmt"
+	"os"
 	"runtime"
 	"unsafe"
 
@@ -13,15 +15,21 @@ import (
 import "C"
 
 func init() {
-	C.init()
+	n := C.CString(os.Args[0])
+	defer C.free(unsafe.Pointer(n))
+	C.init(n)
+
+	go C.runMainloop()
 }
 
 type GstLaunch struct {
-	ctx     *C.Context
-	quit    chan bool
+	ctx     context.Context
+	cancel  func()
+	cCtx    *C.Context
 	active  bool
 	cbEOS   func(*GstLaunch)
 	cbError func(*GstLaunch)
+	index   int
 }
 
 var (
@@ -33,14 +41,15 @@ func New(launch string) *GstLaunch {
 	c_launch := C.CString(launch)
 	defer C.free(unsafe.Pointer(c_launch))
 
-	l := &GstLaunch{quit: make(chan bool, 1), active: false, cbEOS: nil, cbError: nil}
+	l := &GstLaunch{active: false, cbEOS: nil, cbError: nil, index: cPointerMapIndex}
+	l.ctx, l.cancel = context.WithCancel(context.Background())
 	cPointerMap[cPointerMapIndex] = l
 
-	ctx := C.create(c_launch, C.int(cPointerMapIndex))
-	if ctx == nil {
+	cCtx := C.create(c_launch, C.int(cPointerMapIndex))
+	if cCtx == nil {
 		panic("Failed to parse gst-launch text")
 	}
-	l.ctx = ctx
+	l.cCtx = cCtx
 
 	cPointerMapIndex++
 
@@ -50,7 +59,8 @@ func New(launch string) *GstLaunch {
 }
 
 func finalizeGstLaunch(s *GstLaunch) {
-	C.free(unsafe.Pointer(s.ctx))
+	C.free(unsafe.Pointer(s.cCtx))
+	delete(cPointerMap, s.index)
 }
 
 func (s *GstLaunch) RegisterErrorCallback(f func(*GstLaunch)) {
@@ -84,17 +94,20 @@ func goCbError(i C.int) {
 }
 
 func (s *GstLaunch) Run() {
-	s.active = true
-	C.mainloopRun(s.ctx)
-	s.quit <- true
-	s.active = false
+	s.Start()
+	<-s.ctx.Done()
 }
-
+func (s *GstLaunch) Start() {
+	s.active = true
+	C.pipelineStart(s.cCtx)
+}
 func (s *GstLaunch) Wait() {
-	<-s.quit
+	<-s.ctx.Done()
 }
 func (s *GstLaunch) Kill() {
-	C.mainloopKill(s.ctx)
+	s.active = false
+	C.pipelineKill(s.cCtx)
+	s.cancel()
 }
 
 func (s *GstLaunch) Active() bool {
@@ -108,7 +121,7 @@ func (s *GstLaunch) GetElement(name string) (*gst.GstElement, error) {
 	c_name := C.CString(name)
 	defer C.free(unsafe.Pointer(c_name))
 
-	e := C.getElement(s.ctx, c_name)
+	e := C.getElement(s.cCtx, c_name)
 	if e == nil {
 		return nil, fmt.Errorf("Failed to get %s", name)
 	}
