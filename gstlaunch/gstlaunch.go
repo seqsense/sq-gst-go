@@ -2,6 +2,7 @@ package gstlaunch
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"runtime"
@@ -24,14 +25,13 @@ func init() {
 }
 
 type GstLaunch struct {
-	ctx     context.Context
-	cancel  func()
 	cCtx    *C.Context
 	active  bool
 	cbEOS   func(*GstLaunch)
 	cbError func(*GstLaunch)
 	index   int
 	cbLock  sync.Mutex
+	done    chan (struct{})
 }
 
 var (
@@ -50,8 +50,8 @@ func New(launch string) *GstLaunch {
 		cbError: nil,
 		index:   cPointerMapIndex,
 		cbLock:  sync.Mutex{},
+		done:    make(chan struct{}),
 	}
-	l.ctx, l.cancel = context.WithCancel(context.Background())
 
 	cPointerMapMutex.Lock()
 	cPointerMap[cPointerMapIndex] = l
@@ -70,20 +70,21 @@ func New(launch string) *GstLaunch {
 	return l
 }
 
-func finalizeGstLaunch(s *GstLaunch) {
+func finalizeGstLaunch(l *GstLaunch) {
 	cPointerMapMutex.Lock()
 	defer cPointerMapMutex.Unlock()
 
-	C.free(unsafe.Pointer(s.cCtx))
-	delete(cPointerMap, s.index)
+	C.pipelineUnref(l.cCtx)
+	C.free(unsafe.Pointer(l.cCtx))
+	delete(cPointerMap, l.index)
 }
 
-func (s *GstLaunch) RegisterErrorCallback(f func(*GstLaunch)) {
-	s.cbError = f
+func (l *GstLaunch) RegisterErrorCallback(f func(*GstLaunch)) {
+	l.cbError = f
 }
 
-func (s *GstLaunch) RegisterEOSCallback(f func(*GstLaunch)) {
-	s.cbEOS = f
+func (l *GstLaunch) RegisterEOSCallback(f func(*GstLaunch)) {
+	l.cbEOS = f
 }
 
 //export goCbEOS
@@ -116,21 +117,41 @@ func goCbError(i C.int) {
 	}
 }
 
-func (l *GstLaunch) Run() {
+//export goCbState
+func goCbState(i C.int, oldState, newState, pendingState C.uint) {
+	cPointerMapMutex.RLock()
+	l, ok := cPointerMap[int(i)]
+	cPointerMapMutex.RUnlock()
+	if !ok {
+		panic(fmt.Errorf("Failed to map pointer from cgo func (%d)", int(i)))
+	}
+	switch gst.GstState(newState) {
+	case gst.GST_STATE_PLAYING:
+		l.active = true
+	default:
+		l.active = false
+	}
+}
+
+func (l *GstLaunch) Run(ctx context.Context) error {
 	l.Start()
-	<-l.ctx.Done()
+	return l.Wait(ctx)
 }
 func (l *GstLaunch) Start() {
 	l.active = true
 	C.pipelineStart(l.cCtx)
 }
-func (l *GstLaunch) Wait() {
-	<-l.ctx.Done()
-}
 func (l *GstLaunch) Kill() {
-	l.active = false
-	C.pipelineKill(l.cCtx)
-	l.cancel()
+	C.pipelineStop(l.cCtx)
+	close(l.done)
+}
+func (l *GstLaunch) Wait(ctx context.Context) error {
+	select {
+	case <-l.done:
+		return nil
+	case <-ctx.Done():
+		return errors.New("wait timeout")
+	}
 }
 
 func (l *GstLaunch) Active() bool {

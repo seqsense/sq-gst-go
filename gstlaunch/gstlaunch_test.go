@@ -1,6 +1,7 @@
 package gstlaunch
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -11,7 +12,7 @@ import (
 func TestGstLaunch(t *testing.T) {
 	startMethod := map[string]func(l *GstLaunch){
 		"GstLaunch.Run": func(l *GstLaunch) {
-			go l.Run()
+			go l.Run(context.Background())
 		},
 		"GstLaunch.Start": func(l *GstLaunch) {
 			l.Start()
@@ -33,7 +34,11 @@ func TestGstLaunch(t *testing.T) {
 			}
 
 			l.Kill()
-			l.Wait()
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			if l.Wait(ctx) != nil {
+				t.Errorf("failed to wait pipeline stop")
+			}
 
 			if l.Active() != false {
 				t.Errorf("pipeline must be inactive after Kill()")
@@ -55,9 +60,7 @@ func TestGstLaunch_eosHandling(t *testing.T) {
 	}
 	src := appsrc.New(srcElem)
 
-	go func() {
-		l.Run()
-	}()
+	l.Start()
 
 	select {
 	case <-time.After(time.Millisecond * 100):
@@ -72,7 +75,11 @@ func TestGstLaunch_eosHandling(t *testing.T) {
 	}
 
 	l.Kill()
-	l.Wait()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if l.Wait(ctx) != nil {
+		t.Errorf("failed to wait pipeline stop")
+	}
 }
 
 func TestGstLaunch_errorHandling(t *testing.T) {
@@ -82,9 +89,7 @@ func TestGstLaunch_errorHandling(t *testing.T) {
 	l.RegisterErrorCallback(func(l *GstLaunch) {
 		errCh <- struct{}{}
 	})
-	go func() {
-		l.Run()
-	}()
+	l.Start()
 
 	select {
 	case <-time.After(time.Millisecond * 100):
@@ -98,7 +103,11 @@ func TestGstLaunch_errorHandling(t *testing.T) {
 	}
 
 	l.Kill()
-	l.Wait()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if l.Wait(ctx) != nil {
+		t.Errorf("failed to wait pipeline stop")
+	}
 }
 
 func TestGetElement(t *testing.T) {
@@ -123,9 +132,7 @@ func TestGetElement(t *testing.T) {
 		t.Errorf("GstElement for inexistent element must return nil pointer")
 	}
 
-	go func() {
-		l.Run()
-	}()
+	l.Start()
 	<-time.After(time.Millisecond * 100)
 
 	if s := e.State(); s != gst.GST_STATE_PLAYING {

@@ -32,9 +32,7 @@ func TestAppSrcAppSink(t *testing.T) {
 	// Any used objects must not finalized
 	runtime.GC()
 
-	go func() {
-		l.Run()
-	}()
+	l.Start()
 
 	<-time.After(time.Millisecond * 100)
 	pushed := []byte{0, 1, 2, 3, 4, 5, 6, 7}
