@@ -1,7 +1,6 @@
 package gstlaunch
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -10,49 +9,33 @@ import (
 )
 
 func TestGstLaunch(t *testing.T) {
-	startMethod := map[string]func(l *GstLaunch){
-		"GstLaunch.Run": func(l *GstLaunch) {
-			go l.Run(context.Background())
-		},
-		"GstLaunch.Start": func(l *GstLaunch) {
-			l.Start()
-		},
+	l := New("audiotestsrc ! queue ! fakesink")
+	defer l.Unref()
+
+	if l.Active() != false {
+		t.Errorf("pipeline must be inactive before Start()")
 	}
-	for name, start := range startMethod {
-		t.Run(name, func(t *testing.T) {
-			l := New("audiotestsrc ! queue ! fakesink")
-			defer l.Unref()
 
-			if l.Active() != false {
-				t.Errorf("pipeline must be inactive before Run()")
-			}
+	l.Start()
 
-			start(l)
+	<-time.After(time.Millisecond * 100)
+	if l.Active() != true {
+		t.Errorf("pipeline must be active after Start()")
+	}
 
-			<-time.After(time.Millisecond * 100)
-			if l.Active() != true {
-				t.Errorf("pipeline must be active after Run()")
-			}
+	l.Kill()
 
-			l.Kill()
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-			defer cancel()
-			if l.Wait(ctx) != nil {
-				t.Errorf("failed to wait pipeline stop")
-			}
-
-			if l.Active() != false {
-				t.Errorf("pipeline must be inactive after Kill()")
-			}
-		})
+	<-time.After(time.Millisecond * 100)
+	if l.Active() != false {
+		t.Errorf("pipeline must be inactive after Kill()")
 	}
 }
 
 func TestGstLaunch_eosHandling(t *testing.T) {
-	eosCh := make(chan struct{})
-
-	l := New("appsrc name=src ! watchdog timeout=150 ! fakesink")
+	l := New("appsrc name=src ! fakesink")
 	defer l.Unref()
+
+	eosCh := make(chan struct{})
 	l.RegisterEOSCallback(func(l *GstLaunch) {
 		eosCh <- struct{}{}
 	})
@@ -72,23 +55,18 @@ func TestGstLaunch_eosHandling(t *testing.T) {
 	src.EOS()
 	select {
 	case <-time.After(time.Millisecond * 100):
-		t.Errorf("expected error message, but timed-out")
+		t.Errorf("expected EOS message, but timed-out")
 	case <-eosCh:
 	}
 
 	l.Kill()
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-	if l.Wait(ctx) != nil {
-		t.Errorf("failed to wait pipeline stop")
-	}
 }
 
 func TestGstLaunch_errorHandling(t *testing.T) {
-	errCh := make(chan struct{})
-
 	l := New("appsrc ! watchdog timeout=150 ! fakesink")
 	defer l.Unref()
+
+	errCh := make(chan struct{})
 	l.RegisterErrorCallback(func(l *GstLaunch) {
 		errCh <- struct{}{}
 	})
@@ -106,10 +84,43 @@ func TestGstLaunch_errorHandling(t *testing.T) {
 	}
 
 	l.Kill()
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-	if l.Wait(ctx) != nil {
-		t.Errorf("failed to wait pipeline stop")
+}
+
+func TestGstLaunch_stateHandling(t *testing.T) {
+	l := New("audiotestsrc ! queue ! fakesink")
+	defer l.Unref()
+
+	stateCh := make(chan gst.GstState, 100)
+	l.RegisterStateCallback(func(l *GstLaunch, _, s, _ gst.GstState) {
+		stateCh <- s
+	})
+
+	l.Start()
+L1:
+	for {
+		select {
+		case <-time.After(time.Millisecond * 100):
+			t.Error("expected state callback, but timed-out")
+			break L1
+		case s := <-stateCh:
+			if s == gst.GST_STATE_PLAYING {
+				break L1
+			}
+		}
+	}
+
+	l.Kill()
+L2:
+	for {
+		select {
+		case <-time.After(time.Millisecond * 100):
+			t.Error("expected state callback, but timed-out")
+			break L2
+		case s := <-stateCh:
+			if s == gst.GST_STATE_NULL {
+				break L2
+			}
+		}
 	}
 }
 
@@ -140,7 +151,7 @@ func TestGetElement(t *testing.T) {
 	<-time.After(time.Millisecond * 100)
 
 	if s := e.State(); s != gst.GST_STATE_PLAYING {
-		t.Errorf("GstElement state must be GST_STATE_PLAYING(%d) after Run(), but got %d", gst.GST_STATE_PLAYING, s)
+		t.Errorf("GstElement state must be GST_STATE_PLAYING(%d) after Start(), but got %d", gst.GST_STATE_PLAYING, s)
 	}
 
 	l.Kill()

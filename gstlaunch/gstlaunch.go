@@ -1,8 +1,6 @@
 package gstlaunch
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -29,9 +27,9 @@ type GstLaunch struct {
 	active  bool
 	cbEOS   func(*GstLaunch)
 	cbError func(*GstLaunch)
+	cbState func(*GstLaunch, gst.GstState, gst.GstState, gst.GstState)
 	index   int
 	cbLock  sync.Mutex
-	done    chan (struct{})
 }
 
 var (
@@ -48,9 +46,9 @@ func New(launch string) *GstLaunch {
 		active:  false,
 		cbEOS:   nil,
 		cbError: nil,
+		cbState: nil,
 		index:   cPointerMapIndex,
 		cbLock:  sync.Mutex{},
-		done:    make(chan struct{}),
 	}
 
 	cPointerMapMutex.Lock()
@@ -82,6 +80,10 @@ func (l *GstLaunch) RegisterErrorCallback(f func(*GstLaunch)) {
 
 func (l *GstLaunch) RegisterEOSCallback(f func(*GstLaunch)) {
 	l.cbEOS = f
+}
+
+func (l *GstLaunch) RegisterStateCallback(f func(*GstLaunch, gst.GstState, gst.GstState, gst.GstState)) {
+	l.cbState = f
 }
 
 //export goCbEOS
@@ -125,37 +127,25 @@ func goCbState(i C.int, oldState, newState, pendingState C.uint) {
 		log.Printf("Failed to map pointer from cgo func (state message, %d)", int(i))
 		return
 	}
-	l.cbLock.Lock()
-	defer l.cbLock.Unlock()
 	switch gst.GstState(newState) {
 	case gst.GST_STATE_PLAYING:
 		l.active = true
 	default:
 		l.active = false
 	}
+	l.cbLock.Lock()
+	defer l.cbLock.Unlock()
+	if l.cbState != nil {
+		l.cbState(l, gst.GstState(oldState), gst.GstState(newState), gst.GstState(pendingState))
+	}
 }
 
-func (l *GstLaunch) Run(ctx context.Context) error {
-	l.Start()
-	return l.Wait(ctx)
-}
 func (l *GstLaunch) Start() {
-	l.active = true
 	C.pipelineStart(l.cCtx)
 }
 func (l *GstLaunch) Kill() {
 	C.pipelineStop(l.cCtx)
-	close(l.done)
 }
-func (l *GstLaunch) Wait(ctx context.Context) error {
-	select {
-	case <-l.done:
-		return nil
-	case <-ctx.Done():
-		return errors.New("wait timeout")
-	}
-}
-
 func (l *GstLaunch) Active() bool {
 	if l == nil {
 		return false
