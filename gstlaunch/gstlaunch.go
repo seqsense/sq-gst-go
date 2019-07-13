@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"sync"
 	"unsafe"
@@ -89,7 +90,8 @@ func goCbEOS(i C.int) {
 	l, ok := cPointerMap[int(i)]
 	cPointerMapMutex.RUnlock()
 	if !ok {
-		panic(fmt.Errorf("Failed to map pointer from cgo func (%d)", int(i)))
+		log.Printf("Failed to map pointer from cgo func (EOS message, %d)", int(i))
+		return
 	}
 	l.cbLock.Lock()
 	defer l.cbLock.Unlock()
@@ -104,7 +106,8 @@ func goCbError(i C.int) {
 	l, ok := cPointerMap[int(i)]
 	cPointerMapMutex.RUnlock()
 	if !ok {
-		panic(fmt.Errorf("Failed to map pointer from cgo func (%d)", int(i)))
+		log.Printf("Failed to map pointer from cgo func (error message, %d)", int(i))
+		return
 	}
 	l.cbLock.Lock()
 	defer l.cbLock.Unlock()
@@ -119,7 +122,8 @@ func goCbState(i C.int, oldState, newState, pendingState C.uint) {
 	l, ok := cPointerMap[int(i)]
 	cPointerMapMutex.RUnlock()
 	if !ok {
-		panic(fmt.Errorf("Failed to map pointer from cgo func (%d)", int(i)))
+		log.Printf("Failed to map pointer from cgo func (state message, %d)", int(i))
+		return
 	}
 	l.cbLock.Lock()
 	defer l.cbLock.Unlock()
