@@ -2,6 +2,7 @@ package gstlaunch
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -21,6 +22,7 @@ func TestGstLaunch(t *testing.T) {
 	for name, start := range startMethod {
 		t.Run(name, func(t *testing.T) {
 			l := New("audiotestsrc ! queue ! fakesink")
+			defer l.Unref()
 
 			if l.Active() != false {
 				t.Errorf("pipeline must be inactive before Run()")
@@ -51,6 +53,7 @@ func TestGstLaunch_eosHandling(t *testing.T) {
 	eosCh := make(chan struct{})
 
 	l := New("appsrc name=src ! watchdog timeout=150 ! fakesink")
+	defer l.Unref()
 	l.RegisterEOSCallback(func(l *GstLaunch) {
 		eosCh <- struct{}{}
 	})
@@ -86,6 +89,7 @@ func TestGstLaunch_errorHandling(t *testing.T) {
 	errCh := make(chan struct{})
 
 	l := New("appsrc ! watchdog timeout=150 ! fakesink")
+	defer l.Unref()
 	l.RegisterErrorCallback(func(l *GstLaunch) {
 		errCh <- struct{}{}
 	})
@@ -112,6 +116,7 @@ func TestGstLaunch_errorHandling(t *testing.T) {
 
 func TestGetElement(t *testing.T) {
 	l := New("audiotestsrc ! queue name=named_elem ! queue ! fakesink")
+	defer l.Unref()
 
 	e, err := l.GetElement("named_elem")
 	if err != nil {

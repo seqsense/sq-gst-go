@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"runtime"
 	"sync"
 	"unsafe"
 
@@ -54,23 +53,20 @@ func New(launch string) *GstLaunch {
 	}
 
 	cPointerMapMutex.Lock()
-	cPointerMap[cPointerMapIndex] = l
+	id := cPointerMapIndex
+	cPointerMap[id] = l
+	cPointerMapIndex++
 	cPointerMapMutex.Unlock()
 
-	cCtx := C.create(c_launch, C.int(cPointerMapIndex))
+	cCtx := C.create(c_launch, C.int(id))
 	if cCtx == nil {
 		panic("Failed to parse gst-launch text")
 	}
 	l.cCtx = cCtx
-
-	cPointerMapIndex++
-
-	runtime.SetFinalizer(l, finalizeGstLaunch)
-
 	return l
 }
 
-func finalizeGstLaunch(l *GstLaunch) {
+func (l *GstLaunch) Unref() {
 	cPointerMapMutex.Lock()
 	defer cPointerMapMutex.Unlock()
 
@@ -125,6 +121,8 @@ func goCbState(i C.int, oldState, newState, pendingState C.uint) {
 	if !ok {
 		panic(fmt.Errorf("Failed to map pointer from cgo func (%d)", int(i)))
 	}
+	l.cbLock.Lock()
+	defer l.cbLock.Unlock()
 	switch gst.GstState(newState) {
 	case gst.GST_STATE_PLAYING:
 		l.active = true
