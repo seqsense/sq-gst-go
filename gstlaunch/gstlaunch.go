@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"sync"
 	"unsafe"
 
 	gst "github.com/seqsense/sq-gst-go"
@@ -30,20 +31,31 @@ type GstLaunch struct {
 	cbEOS   func(*GstLaunch)
 	cbError func(*GstLaunch)
 	index   int
+	cbLock  sync.Mutex
 }
 
 var (
 	cPointerMap          = make(map[int]*GstLaunch)
 	cPointerMapIndex int = 0
+	cPointerMapMutex     = sync.RWMutex{}
 )
 
 func New(launch string) *GstLaunch {
 	c_launch := C.CString(launch)
 	defer C.free(unsafe.Pointer(c_launch))
 
-	l := &GstLaunch{active: false, cbEOS: nil, cbError: nil, index: cPointerMapIndex}
+	l := &GstLaunch{
+		active:  false,
+		cbEOS:   nil,
+		cbError: nil,
+		index:   cPointerMapIndex,
+		cbLock:  sync.Mutex{},
+	}
 	l.ctx, l.cancel = context.WithCancel(context.Background())
+
+	cPointerMapMutex.Lock()
 	cPointerMap[cPointerMapIndex] = l
+	cPointerMapMutex.Unlock()
 
 	cCtx := C.create(c_launch, C.int(cPointerMapIndex))
 	if cCtx == nil {
@@ -59,6 +71,9 @@ func New(launch string) *GstLaunch {
 }
 
 func finalizeGstLaunch(s *GstLaunch) {
+	cPointerMapMutex.Lock()
+	defer cPointerMapMutex.Unlock()
+
 	C.free(unsafe.Pointer(s.cCtx))
 	delete(cPointerMap, s.index)
 }
@@ -73,55 +88,63 @@ func (s *GstLaunch) RegisterEOSCallback(f func(*GstLaunch)) {
 
 //export goCbEOS
 func goCbEOS(i C.int) {
-	s, ok := cPointerMap[int(i)]
+	cPointerMapMutex.RLock()
+	l, ok := cPointerMap[int(i)]
+	cPointerMapMutex.RUnlock()
 	if !ok {
 		panic(fmt.Errorf("Failed to map pointer from cgo func (%d)", int(i)))
 	}
-	if s.cbEOS != nil {
-		s.cbEOS(s)
+	l.cbLock.Lock()
+	defer l.cbLock.Unlock()
+	if l.cbEOS != nil {
+		l.cbEOS(l)
 	}
 }
 
 //export goCbError
 func goCbError(i C.int) {
-	s, ok := cPointerMap[int(i)]
+	cPointerMapMutex.RLock()
+	l, ok := cPointerMap[int(i)]
+	cPointerMapMutex.RUnlock()
 	if !ok {
 		panic(fmt.Errorf("Failed to map pointer from cgo func (%d)", int(i)))
 	}
-	if s.cbError != nil {
-		s.cbError(s)
+	l.cbLock.Lock()
+	defer l.cbLock.Unlock()
+	if l.cbError != nil {
+		l.cbError(l)
 	}
 }
 
-func (s *GstLaunch) Run() {
-	s.Start()
-	<-s.ctx.Done()
+func (l *GstLaunch) Run() {
+	l.Start()
+	<-l.ctx.Done()
 }
-func (s *GstLaunch) Start() {
-	s.active = true
-	C.pipelineStart(s.cCtx)
+func (l *GstLaunch) Start() {
+	l.active = true
+	C.pipelineStart(l.cCtx)
 }
-func (s *GstLaunch) Wait() {
-	<-s.ctx.Done()
+func (l *GstLaunch) Wait() {
+	<-l.ctx.Done()
 }
-func (s *GstLaunch) Kill() {
-	s.active = false
-	C.pipelineKill(s.cCtx)
-	s.cancel()
+func (l *GstLaunch) Kill() {
+	l.active = false
+	C.pipelineKill(l.cCtx)
+	l.cancel()
 }
 
-func (s *GstLaunch) Active() bool {
-	if s == nil {
+func (l *GstLaunch) Active() bool {
+	if l == nil {
 		return false
 	}
-	return s.active
+	return l.active
 }
 
-func (s *GstLaunch) GetElement(name string) (*gst.GstElement, error) {
+func (l *GstLaunch) GetElement(name string) (*gst.GstElement, error) {
 	c_name := C.CString(name)
 	defer C.free(unsafe.Pointer(c_name))
 
-	e := C.getElement(s.cCtx, c_name)
+	e := C.getElement(l.cCtx, c_name)
 	if e == nil {
 		return nil, fmt.Errorf("Failed to get %s", name)
 	}
