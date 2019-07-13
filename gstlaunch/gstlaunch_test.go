@@ -2,7 +2,6 @@ package gstlaunch
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 

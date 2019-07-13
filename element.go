@@ -12,7 +12,10 @@ package gst
 // }
 import "C"
 
-import "unsafe"
+import (
+	"runtime"
+	"unsafe"
+)
 
 type GstElement struct {
 	p unsafe.Pointer
@@ -29,7 +32,9 @@ const (
 )
 
 func NewGstElement(p unsafe.Pointer) *GstElement {
-	return &GstElement{p: p}
+	e := &GstElement{p: p}
+	runtime.SetFinalizer(e, finalizeGstElement)
+	return e
 }
 
 func finalizeGstElement(s *GstElement) {
