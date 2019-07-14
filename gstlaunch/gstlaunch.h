@@ -21,12 +21,15 @@ typedef struct
 
 extern void goCbEOS(int id);
 extern void goCbError(int id);
+extern void goCbState(
+    int id, unsigned int old_state, unsigned int new_state, unsigned int pending_state);
 
 void init(char* exec_name);
 void runMainloop();
 Context* create(const char* launch, int user_int);
 void pipelineStart(Context* ctx);
-void pipelineKill(Context* ctx);
+void pipelineStop(Context* ctx);
+void pipelineUnref(Context* ctx);
 GstElement* getElement(Context* ctx, const char* name);
 
 #endif  // GSTLAUNCH_H

@@ -6,6 +6,7 @@ import "C"
 
 import (
 	"log"
+	"sync"
 	"sync/atomic"
 	"unsafe"
 
@@ -23,14 +24,10 @@ type AppSinkHandlerInfo struct {
 }
 
 var (
-	handlers map[int32]*AppSinkHandlerInfo
-	idCnt    int32
+	handlers     = make(map[int32]*AppSinkHandlerInfo)
+	handlerMutex sync.RWMutex
+	idCnt        = int32(0)
 )
-
-func init() {
-	idCnt = 0
-	handlers = make(map[int32]*AppSinkHandlerInfo)
-}
 
 func New(e *gst.GstElement, cb SinkBufferHandler) *AppSink {
 	id := atomic.AddInt32(&idCnt, 1)
@@ -38,20 +35,27 @@ func New(e *gst.GstElement, cb SinkBufferHandler) *AppSink {
 		element: e,
 		id:      id,
 	}
+	handlerMutex.Lock()
 	handlers[id] = &AppSinkHandlerInfo{
 		handler: cb,
 	}
+	handlerMutex.Unlock()
 	C.registerBufferHandler(e.UnsafePointer(), C.int(id))
 	return s
 }
 
 func (s *AppSink) Close() {
+	handlerMutex.Lock()
 	delete(handlers, s.id)
+	handlerMutex.Unlock()
 }
 
 //export goBufferHandler
 func goBufferHandler(p unsafe.Pointer, len, samples, id C.int) {
-	if h, ok := handlers[int32(id)]; ok {
+	handlerMutex.RLock()
+	h, ok := handlers[int32(id)]
+	handlerMutex.RUnlock()
+	if ok {
 		h.handler(C.GoBytes(p, len), int(samples))
 	} else {
 		log.Printf("Unhandled buffer received (id: %d)", int(id))

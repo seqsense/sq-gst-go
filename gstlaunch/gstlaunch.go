@@ -1,10 +1,9 @@
 package gstlaunch
 
 import (
-	"context"
 	"fmt"
+	"log"
 	"os"
-	"runtime"
 	"sync"
 	"unsafe"
 
@@ -24,12 +23,11 @@ func init() {
 }
 
 type GstLaunch struct {
-	ctx     context.Context
-	cancel  func()
 	cCtx    *C.Context
 	active  bool
 	cbEOS   func(*GstLaunch)
 	cbError func(*GstLaunch)
+	cbState func(*GstLaunch, gst.GstState, gst.GstState, gst.GstState)
 	index   int
 	cbLock  sync.Mutex
 }
@@ -48,42 +46,45 @@ func New(launch string) *GstLaunch {
 		active:  false,
 		cbEOS:   nil,
 		cbError: nil,
-		index:   cPointerMapIndex,
+		cbState: nil,
 		cbLock:  sync.Mutex{},
 	}
-	l.ctx, l.cancel = context.WithCancel(context.Background())
 
 	cPointerMapMutex.Lock()
-	cPointerMap[cPointerMapIndex] = l
+	id := cPointerMapIndex
+	cPointerMap[id] = l
+	cPointerMapIndex++
 	cPointerMapMutex.Unlock()
 
-	cCtx := C.create(c_launch, C.int(cPointerMapIndex))
+	l.index = id
+
+	cCtx := C.create(c_launch, C.int(id))
 	if cCtx == nil {
 		panic("Failed to parse gst-launch text")
 	}
 	l.cCtx = cCtx
-
-	cPointerMapIndex++
-
-	runtime.SetFinalizer(l, finalizeGstLaunch)
-
 	return l
 }
 
-func finalizeGstLaunch(s *GstLaunch) {
+func (l *GstLaunch) Unref() {
 	cPointerMapMutex.Lock()
 	defer cPointerMapMutex.Unlock()
 
-	C.free(unsafe.Pointer(s.cCtx))
-	delete(cPointerMap, s.index)
+	C.pipelineUnref(l.cCtx)
+	C.free(unsafe.Pointer(l.cCtx))
+	delete(cPointerMap, l.index)
 }
 
-func (s *GstLaunch) RegisterErrorCallback(f func(*GstLaunch)) {
-	s.cbError = f
+func (l *GstLaunch) RegisterErrorCallback(f func(*GstLaunch)) {
+	l.cbError = f
 }
 
-func (s *GstLaunch) RegisterEOSCallback(f func(*GstLaunch)) {
-	s.cbEOS = f
+func (l *GstLaunch) RegisterEOSCallback(f func(*GstLaunch)) {
+	l.cbEOS = f
+}
+
+func (l *GstLaunch) RegisterStateCallback(f func(*GstLaunch, gst.GstState, gst.GstState, gst.GstState)) {
+	l.cbState = f
 }
 
 //export goCbEOS
@@ -92,7 +93,8 @@ func goCbEOS(i C.int) {
 	l, ok := cPointerMap[int(i)]
 	cPointerMapMutex.RUnlock()
 	if !ok {
-		panic(fmt.Errorf("Failed to map pointer from cgo func (%d)", int(i)))
+		log.Printf("Failed to map pointer from cgo func (EOS message, %d)", int(i))
+		return
 	}
 	l.cbLock.Lock()
 	defer l.cbLock.Unlock()
@@ -107,7 +109,8 @@ func goCbError(i C.int) {
 	l, ok := cPointerMap[int(i)]
 	cPointerMapMutex.RUnlock()
 	if !ok {
-		panic(fmt.Errorf("Failed to map pointer from cgo func (%d)", int(i)))
+		log.Printf("Failed to map pointer from cgo func (error message, %d)", int(i))
+		return
 	}
 	l.cbLock.Lock()
 	defer l.cbLock.Unlock()
@@ -116,23 +119,34 @@ func goCbError(i C.int) {
 	}
 }
 
-func (l *GstLaunch) Run() {
-	l.Start()
-	<-l.ctx.Done()
-}
-func (l *GstLaunch) Start() {
-	l.active = true
-	C.pipelineStart(l.cCtx)
-}
-func (l *GstLaunch) Wait() {
-	<-l.ctx.Done()
-}
-func (l *GstLaunch) Kill() {
-	l.active = false
-	C.pipelineKill(l.cCtx)
-	l.cancel()
+//export goCbState
+func goCbState(i C.int, oldState, newState, pendingState C.uint) {
+	cPointerMapMutex.RLock()
+	l, ok := cPointerMap[int(i)]
+	cPointerMapMutex.RUnlock()
+	if !ok {
+		log.Printf("Failed to map pointer from cgo func (state message, %d)", int(i))
+		return
+	}
+	switch gst.GstState(newState) {
+	case gst.GST_STATE_PLAYING:
+		l.active = true
+	default:
+		l.active = false
+	}
+	l.cbLock.Lock()
+	defer l.cbLock.Unlock()
+	if l.cbState != nil {
+		l.cbState(l, gst.GstState(oldState), gst.GstState(newState), gst.GstState(pendingState))
+	}
 }
 
+func (l *GstLaunch) Start() {
+	C.pipelineStart(l.cCtx)
+}
+func (l *GstLaunch) Kill() {
+	C.pipelineStop(l.cCtx)
+}
 func (l *GstLaunch) Active() bool {
 	if l == nil {
 		return false

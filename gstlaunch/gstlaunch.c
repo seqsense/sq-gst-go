@@ -37,6 +37,13 @@ static gboolean cbMessage(GstBus* bus, GstMessage* msg, gpointer p)
   if ((GST_MESSAGE_TYPE(msg) & GST_MESSAGE_ERROR))
     goCbError(ctx->user_int);
 
+  if ((GST_MESSAGE_TYPE(msg) & GST_MESSAGE_STATE_CHANGED))
+  {
+    GstState old_state, new_state, pending_state;
+    gst_message_parse_state_changed(msg, &old_state, &new_state, &pending_state);
+    goCbState(ctx->user_int, old_state, new_state, pending_state);
+  }
+
   return TRUE;
 }
 Context* create(const char* launch, int user_int)
@@ -66,7 +73,11 @@ void pipelineStart(Context* ctx)
 {
   gst_element_set_state(ctx->pipeline, GST_STATE_PLAYING);
 }
-void pipelineKill(Context* ctx)
+void pipelineStop(Context* ctx)
+{
+  gst_element_set_state(ctx->pipeline, GST_STATE_NULL);
+}
+void pipelineUnref(Context* ctx)
 {
   gst_element_set_state(ctx->pipeline, GST_STATE_NULL);
   gst_object_unref(ctx->pipeline);
