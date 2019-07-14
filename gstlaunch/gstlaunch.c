@@ -79,6 +79,7 @@ void pipelineStop(Context* ctx)
 }
 void pipelineUnref(Context* ctx)
 {
+  gst_element_set_state(ctx->pipeline, GST_STATE_NULL);
   gst_object_unref(ctx->pipeline);
 }
 GstElement* getElement(Context* ctx, const char* name)
