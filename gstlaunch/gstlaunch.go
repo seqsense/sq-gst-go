@@ -47,7 +47,6 @@ func New(launch string) *GstLaunch {
 		cbEOS:   nil,
 		cbError: nil,
 		cbState: nil,
-		index:   cPointerMapIndex,
 		cbLock:  sync.Mutex{},
 	}
 
@@ -56,6 +55,8 @@ func New(launch string) *GstLaunch {
 	cPointerMap[id] = l
 	cPointerMapIndex++
 	cPointerMapMutex.Unlock()
+
+	l.index = id
 
 	cCtx := C.create(c_launch, C.int(id))
 	if cCtx == nil {
