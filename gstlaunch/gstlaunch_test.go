@@ -10,7 +10,6 @@ import (
 
 func TestGstLaunch(t *testing.T) {
 	l := New("audiotestsrc ! queue ! fakesink")
-	defer l.Unref()
 
 	if l.Active() != false {
 		t.Errorf("pipeline must be inactive before Start()")
@@ -33,7 +32,6 @@ func TestGstLaunch(t *testing.T) {
 
 func TestGstLaunch_eosHandling(t *testing.T) {
 	l := New("appsrc name=src ! fakesink")
-	defer l.Unref()
 
 	eosCh := make(chan struct{})
 	l.RegisterEOSCallback(func(l *GstLaunch) {
@@ -64,7 +62,6 @@ func TestGstLaunch_eosHandling(t *testing.T) {
 
 func TestGstLaunch_errorHandling(t *testing.T) {
 	l := New("appsrc ! watchdog timeout=150 ! fakesink")
-	defer l.Unref()
 
 	errCh := make(chan struct{})
 	l.RegisterErrorCallback(func(l *GstLaunch) {
@@ -88,7 +85,6 @@ func TestGstLaunch_errorHandling(t *testing.T) {
 
 func TestGstLaunch_stateHandling(t *testing.T) {
 	l := New("audiotestsrc ! queue ! fakesink")
-	defer l.Unref()
 
 	stateCh := make(chan gst.GstState, 100)
 	l.RegisterStateCallback(func(l *GstLaunch, _, s, _ gst.GstState) {
@@ -126,7 +122,6 @@ L2:
 
 func TestGetElement(t *testing.T) {
 	l := New("audiotestsrc ! queue name=named_elem ! queue ! fakesink")
-	defer l.Unref()
 
 	e, err := l.GetElement("named_elem")
 	if err != nil {
