@@ -6,10 +6,10 @@ import (
 	"github.com/seqsense/sq-gst-go/internal/dummyelement"
 )
 
-func TestGstLaunch(t *testing.T) {
-	e := NewGstElement(dummyelement.New())
+func TestLaunch(t *testing.T) {
+	e := NewElement(dummyelement.New())
 	s0 := e.State()
-	if s0 != GST_STATE_NULL {
-		t.Errorf("Element state at initialization must be GST_STATE_NULL(%d) but got %d", GST_STATE_NULL, s0)
+	if s0 != StateNull {
+		t.Errorf("Element state at initialization must be StateNull(%d) but got %d", StateNull, s0)
 	}
 }

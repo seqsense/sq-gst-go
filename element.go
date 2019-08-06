@@ -18,51 +18,62 @@ import (
 	"unsafe"
 )
 
-type GstElement struct {
+// Element is a wrapper of GstElement.
+type Element struct {
 	p unsafe.Pointer
 }
 
-type GstState uint8
+// State is a GStreamer element state.
+type State uint8
 
 const (
-	GST_STATE_VOID_PENDING GstState = iota
-	GST_STATE_NULL
-	GST_STATE_READY
-	GST_STATE_PAUSED
-	GST_STATE_PLAYING
+	// StateVoidPending states that the element don't have pending state.
+	StateVoidPending State = iota
+	// StateNull states that the element is initial or finalized state.
+	StateNull
+	// StateReady states that the element allocated resources.
+	StateReady
+	// StatePaused states that the element is paused and ready to accept data.
+	StatePaused
+	//StatePlaying states that the element is playing.
+	StatePlaying
 )
 
-func (s GstState) String() string {
+// String returns string representation of the State.
+func (s State) String() string {
 	switch s {
-	case GST_STATE_VOID_PENDING:
-		return "GST_STATE_VOID_PENDING"
-	case GST_STATE_NULL:
-		return "GST_STATE_NULL"
-	case GST_STATE_READY:
-		return "GST_STATE_READY"
-	case GST_STATE_PAUSED:
-		return "GST_STATE_PAUSED"
-	case GST_STATE_PLAYING:
-		return "GST_STATE_PLAYING"
+	case StateVoidPending:
+		return "StateVoidPending"
+	case StateNull:
+		return "StateNull"
+	case StateReady:
+		return "StateReady"
+	case StatePaused:
+		return "StatePaused"
+	case StatePlaying:
+		return "StatePlaying"
 	default:
-		return fmt.Sprintf("Unknonw GstState (%d)", int(s))
+		return fmt.Sprintf("Unknonw State (%d)", int(s))
 	}
 }
 
-func NewGstElement(p unsafe.Pointer) *GstElement {
-	e := &GstElement{p: p}
-	runtime.SetFinalizer(e, finalizeGstElement)
+// NewElement creates a new GStreamer element wrapper from given raw pointer.
+func NewElement(p unsafe.Pointer) *Element {
+	e := &Element{p: p}
+	runtime.SetFinalizer(e, finalizeElement)
 	return e
 }
 
-func finalizeGstElement(s *GstElement) {
+func finalizeElement(s *Element) {
 	C.unrefElement(s.UnsafePointer())
 }
 
-func (s *GstElement) UnsafePointer() unsafe.Pointer {
+// UnsafePointer returns the raw pointer of the element.
+func (s *Element) UnsafePointer() unsafe.Pointer {
 	return s.p
 }
 
-func (s *GstElement) State() GstState {
-	return GstState(C.getElementState(s.p))
+// State returns the current state of the element.
+func (s *Element) State() State {
+	return State(C.getElementState(s.p))
 }
