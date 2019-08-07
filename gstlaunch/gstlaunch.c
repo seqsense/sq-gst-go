@@ -39,9 +39,12 @@ static gboolean cbMessage(GstBus* bus, GstMessage* msg, gpointer p)
 
   if ((GST_MESSAGE_TYPE(msg) & GST_MESSAGE_STATE_CHANGED))
   {
-    GstState old_state, new_state, pending_state;
-    gst_message_parse_state_changed(msg, &old_state, &new_state, &pending_state);
-    goCbState(ctx->user_int, old_state, new_state, pending_state);
+    if (GST_MESSAGE_SRC(msg) == GST_OBJECT(ctx->pipeline))
+    {
+      GstState old_state, new_state, pending_state;
+      gst_message_parse_state_changed(msg, &old_state, &new_state, &pending_state);
+      goCbState(ctx->user_int, old_state, new_state, pending_state);
+    }
   }
 
   return TRUE;
@@ -51,7 +54,6 @@ Context* create(const char* launch, int user_int)
   Context* ctx;
   GstElement* pipeline;
   GError* err = NULL;
-  GstBus* bus;
   GstElement* src;
 
   pipeline = gst_parse_launch(launch, &err);
@@ -63,9 +65,8 @@ Context* create(const char* launch, int user_int)
   ctx->pipeline = pipeline;
   ctx->user_int = user_int;
 
-  bus = gst_element_get_bus(pipeline);
-  gst_bus_add_watch(bus, cbMessage, ctx);
-  g_object_unref(bus);
+  ctx->bus = gst_element_get_bus(pipeline);
+  ctx->watch_tag = gst_bus_add_watch(ctx->bus, cbMessage, ctx);
 
   return ctx;
 }
@@ -80,7 +81,10 @@ void pipelineStop(Context* ctx)
 void pipelineUnref(Context* ctx)
 {
   gst_element_set_state(ctx->pipeline, GST_STATE_NULL);
+  g_object_unref(ctx->bus);
+  g_source_remove(ctx->watch_tag);
   gst_object_unref(ctx->pipeline);
+  free(ctx);
 }
 GstElement* getElement(Context* ctx, const char* name)
 {

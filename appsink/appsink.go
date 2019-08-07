@@ -13,30 +13,34 @@ import (
 	gst "github.com/seqsense/sq-gst-go"
 )
 
-type SinkBufferHandler func([]byte, int)
+// BufferHandler is a stream buffer handler callback type.
+type BufferHandler func([]byte, int)
 
+// AppSink is a wrapper of GStreamer AppSink element.
 type AppSink struct {
-	element *gst.GstElement
+	element *gst.Element
 	id      int32
 }
-type AppSinkHandlerInfo struct {
-	handler SinkBufferHandler
+
+type handlerInfo struct {
+	handler BufferHandler
 }
 
 var (
-	handlers     = make(map[int32]*AppSinkHandlerInfo)
+	handlers     = make(map[int32]*handlerInfo)
 	handlerMutex sync.RWMutex
 	idCnt        = int32(0)
 )
 
-func New(e *gst.GstElement, cb SinkBufferHandler) *AppSink {
+// New creates a GStreamer AppSink element wrapper.
+func New(e *gst.Element, cb BufferHandler) *AppSink {
 	id := atomic.AddInt32(&idCnt, 1)
 	s := &AppSink{
 		element: e,
 		id:      id,
 	}
 	handlerMutex.Lock()
-	handlers[id] = &AppSinkHandlerInfo{
+	handlers[id] = &handlerInfo{
 		handler: cb,
 	}
 	handlerMutex.Unlock()
@@ -44,6 +48,7 @@ func New(e *gst.GstElement, cb SinkBufferHandler) *AppSink {
 	return s
 }
 
+// Close stops AppSink handling and free resource.s
 func (s *AppSink) Close() {
 	handlerMutex.Lock()
 	delete(handlers, s.id)

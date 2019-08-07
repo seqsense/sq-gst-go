@@ -23,6 +23,7 @@ func init() {
 	C.init()
 }
 
+// New returns dummy GstElement pointer. This is for internal testing.
 func New() unsafe.Pointer {
 	return unsafe.Pointer(C.newElement())
 }

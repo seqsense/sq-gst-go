@@ -8,9 +8,8 @@ import (
 	"github.com/seqsense/sq-gst-go/appsrc"
 )
 
-func TestGstLaunch(t *testing.T) {
-	l := New("audiotestsrc ! queue ! fakesink")
-	defer l.Unref()
+func TestLaunch(t *testing.T) {
+	l := MustNew("audiotestsrc ! queue ! fakesink")
 
 	if l.Active() != false {
 		t.Errorf("pipeline must be inactive before Start()")
@@ -31,9 +30,8 @@ func TestGstLaunch(t *testing.T) {
 	}
 }
 
-func TestGstLaunch_eosHandling(t *testing.T) {
-	l := New("appsrc name=src ! fakesink")
-	defer l.Unref()
+func TestLaunch_eosHandling(t *testing.T) {
+	l := MustNew("appsrc name=src ! fakesink")
 
 	eosCh := make(chan struct{})
 	l.RegisterEOSCallback(func(l *GstLaunch) {
@@ -62,9 +60,8 @@ func TestGstLaunch_eosHandling(t *testing.T) {
 	l.Kill()
 }
 
-func TestGstLaunch_errorHandling(t *testing.T) {
-	l := New("appsrc ! watchdog timeout=150 ! fakesink")
-	defer l.Unref()
+func TestLaunch_errorHandling(t *testing.T) {
+	l := MustNew("appsrc ! watchdog timeout=150 ! fakesink")
 
 	errCh := make(chan struct{})
 	l.RegisterErrorCallback(func(l *GstLaunch) {
@@ -86,12 +83,11 @@ func TestGstLaunch_errorHandling(t *testing.T) {
 	l.Kill()
 }
 
-func TestGstLaunch_stateHandling(t *testing.T) {
-	l := New("audiotestsrc ! queue ! fakesink")
-	defer l.Unref()
+func TestLaunch_stateHandling(t *testing.T) {
+	l := MustNew("audiotestsrc ! queue ! fakesink")
 
-	stateCh := make(chan gst.GstState, 100)
-	l.RegisterStateCallback(func(l *GstLaunch, _, s, _ gst.GstState) {
+	stateCh := make(chan gst.State, 100)
+	l.RegisterStateCallback(func(l *GstLaunch, _, s, _ gst.State) {
 		stateCh <- s
 	})
 
@@ -103,7 +99,7 @@ L1:
 			t.Error("expected state callback, but timed-out")
 			break L1
 		case s := <-stateCh:
-			if s == gst.GST_STATE_PLAYING {
+			if s == gst.StatePlaying {
 				break L1
 			}
 		}
@@ -117,7 +113,7 @@ L2:
 			t.Error("expected state callback, but timed-out")
 			break L2
 		case s := <-stateCh:
-			if s == gst.GST_STATE_NULL {
+			if s == gst.StateNull {
 				break L2
 			}
 		}
@@ -125,33 +121,32 @@ L2:
 }
 
 func TestGetElement(t *testing.T) {
-	l := New("audiotestsrc ! queue name=named_elem ! queue ! fakesink")
-	defer l.Unref()
+	l := MustNew("audiotestsrc ! queue name=named_elem ! queue ! fakesink")
 
 	e, err := l.GetElement("named_elem")
 	if err != nil {
-		t.Errorf("GstElement for existing element must not return error")
+		t.Errorf("Element for existing element must not return error")
 	}
 	if e == nil {
-		t.Errorf("GstElement for existing element must return pointer")
+		t.Errorf("Element for existing element must return pointer")
 	}
-	if s := e.State(); s != gst.GST_STATE_NULL {
-		t.Errorf("GstElement state must be GST_STATE_NULL(%d) at initialization, but got %d", gst.GST_STATE_NULL, s)
+	if s := e.State(); s != gst.StateNull {
+		t.Errorf("Element state must be StateNull(%d) at initialization, but got %d", gst.StateNull, s)
 	}
 
-	e_inexistent, err := l.GetElement("inexistent_elem")
+	eInexistent, err := l.GetElement("inexistent_elem")
 	if err == nil {
-		t.Errorf("GstElement for inexistent element must return error")
+		t.Errorf("Element for inexistent element must return error")
 	}
-	if e_inexistent != nil {
-		t.Errorf("GstElement for inexistent element must return nil pointer")
+	if eInexistent != nil {
+		t.Errorf("Element for inexistent element must return nil pointer")
 	}
 
 	l.Start()
 	<-time.After(time.Millisecond * 100)
 
-	if s := e.State(); s != gst.GST_STATE_PLAYING {
-		t.Errorf("GstElement state must be GST_STATE_PLAYING(%d) after Start(), but got %d", gst.GST_STATE_PLAYING, s)
+	if s := e.State(); s != gst.StatePlaying {
+		t.Errorf("Element state must be StatePlaying(%d) after Start(), but got %d", gst.StatePlaying, s)
 	}
 
 	l.Kill()

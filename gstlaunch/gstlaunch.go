@@ -22,25 +22,29 @@ func init() {
 	go C.runMainloop()
 }
 
+// GstLaunch is a wrapper of GstPipeline structured from launch string.
 type GstLaunch struct {
 	cCtx    *C.Context
 	active  bool
+	closed  bool
 	cbEOS   func(*GstLaunch)
 	cbError func(*GstLaunch)
-	cbState func(*GstLaunch, gst.GstState, gst.GstState, gst.GstState)
+	cbState func(*GstLaunch, gst.State, gst.State, gst.State)
 	index   int
 	cbLock  sync.Mutex
 }
 
 var (
-	cPointerMap          = make(map[int]*GstLaunch)
-	cPointerMapIndex int = 0
-	cPointerMapMutex     = sync.RWMutex{}
+	cPointerMapIndex int
+	cPointerMap      = make(map[int]*GstLaunch)
+	cPointerMapMutex = sync.RWMutex{}
+	errClosed        = fmt.Errorf("pipeline is closed")
 )
 
-func New(launch string) *GstLaunch {
-	c_launch := C.CString(launch)
-	defer C.free(unsafe.Pointer(c_launch))
+// New creates a new GstPipeline wrapper from launch string.
+func New(launch string) (*GstLaunch, error) {
+	cLaunch := C.CString(launch)
+	defer C.free(unsafe.Pointer(cLaunch))
 
 	l := &GstLaunch{
 		active:  false,
@@ -58,33 +62,61 @@ func New(launch string) *GstLaunch {
 
 	l.index = id
 
-	cCtx := C.create(c_launch, C.int(id))
+	cCtx := C.create(cLaunch, C.int(id))
 	if cCtx == nil {
-		panic("Failed to parse gst-launch text")
+		return nil, fmt.Errorf("Failed to parse gst-launch text")
 	}
 	l.cCtx = cCtx
+	return l, nil
+}
+
+func (l *GstLaunch) unref() error {
+	if l.closed {
+		return errClosed
+	}
+	l.closed = true
+	C.pipelineUnref(l.cCtx)
+
+	cPointerMapMutex.Lock()
+	delete(cPointerMap, l.index)
+	cPointerMapMutex.Unlock()
+	return nil
+}
+
+// New creates a new GstPipeline wrapper from launch string. It panics on fail.
+func MustNew(launch string) *GstLaunch {
+	l, err := New(launch)
+	if err != nil {
+		panic(err)
+	}
 	return l
 }
 
-func (l *GstLaunch) Unref() {
-	cPointerMapMutex.Lock()
-	defer cPointerMapMutex.Unlock()
-
-	C.pipelineUnref(l.cCtx)
-	C.free(unsafe.Pointer(l.cCtx))
-	delete(cPointerMap, l.index)
-}
-
-func (l *GstLaunch) RegisterErrorCallback(f func(*GstLaunch)) {
+// RegisterErrorCallback registers error message handler callback.
+func (l *GstLaunch) RegisterErrorCallback(f func(*GstLaunch)) error {
+	if l.closed {
+		return errClosed
+	}
 	l.cbError = f
+	return nil
 }
 
-func (l *GstLaunch) RegisterEOSCallback(f func(*GstLaunch)) {
+// RegisterEOSCallback registers EOS message handler callback.
+func (l *GstLaunch) RegisterEOSCallback(f func(*GstLaunch)) error {
+	if l.closed {
+		return errClosed
+	}
 	l.cbEOS = f
+	return nil
 }
 
-func (l *GstLaunch) RegisterStateCallback(f func(*GstLaunch, gst.GstState, gst.GstState, gst.GstState)) {
+// RegisterStateCallback registers state update message handler callback.
+func (l *GstLaunch) RegisterStateCallback(f func(*GstLaunch, gst.State, gst.State, gst.State)) error {
+	if l.closed {
+		return errClosed
+	}
 	l.cbState = f
+	return nil
 }
 
 //export goCbEOS
@@ -96,10 +128,10 @@ func goCbEOS(i C.int) {
 		log.Printf("Failed to map pointer from cgo func (EOS message, %d)", int(i))
 		return
 	}
-	l.cbLock.Lock()
-	defer l.cbLock.Unlock()
 	if l.cbEOS != nil {
+		l.cbLock.Lock()
 		l.cbEOS(l)
+		l.cbLock.Unlock()
 	}
 }
 
@@ -112,10 +144,10 @@ func goCbError(i C.int) {
 		log.Printf("Failed to map pointer from cgo func (error message, %d)", int(i))
 		return
 	}
-	l.cbLock.Lock()
-	defer l.cbLock.Unlock()
 	if l.cbError != nil {
+		l.cbLock.Lock()
 		l.cbError(l)
+		l.cbLock.Unlock()
 	}
 }
 
@@ -128,39 +160,68 @@ func goCbState(i C.int, oldState, newState, pendingState C.uint) {
 		log.Printf("Failed to map pointer from cgo func (state message, %d)", int(i))
 		return
 	}
-	switch gst.GstState(newState) {
-	case gst.GST_STATE_PLAYING:
+	l.setState(gst.State(oldState), gst.State(newState), gst.State(pendingState))
+}
+
+func (l *GstLaunch) setState(o, n, p gst.State) {
+	if l.cbState != nil {
+		l.cbLock.Lock()
+		l.cbState(l, o, n, p)
+		l.cbLock.Unlock()
+	}
+	switch n {
+	case gst.StatePlaying:
 		l.active = true
+	case gst.StateNull:
+		l.unref()
+		l.active = false
 	default:
 		l.active = false
 	}
-	l.cbLock.Lock()
-	defer l.cbLock.Unlock()
-	if l.cbState != nil {
-		l.cbState(l, gst.GstState(oldState), gst.GstState(newState), gst.GstState(pendingState))
-	}
 }
 
-func (l *GstLaunch) Start() {
+// Start makes the pipeline playing.
+func (l *GstLaunch) Start() error {
+	if l.closed {
+		return errClosed
+	}
 	C.pipelineStart(l.cCtx)
+	return nil
 }
-func (l *GstLaunch) Kill() {
+
+// Kill stops the pipeline and free resources.
+func (l *GstLaunch) Kill() error {
+	if l.closed {
+		return errClosed
+	}
 	C.pipelineStop(l.cCtx)
+	// Transition to StateNULL is guaranteed to be synchronous and message is no longer reachable.
+	l.setState(gst.StateReady, gst.StateNull, gst.StateVoidPending)
+	return nil
 }
+
+// Active returns true if the pipeline is playing.
 func (l *GstLaunch) Active() bool {
 	if l == nil {
+		return false
+	}
+	if l.closed {
 		return false
 	}
 	return l.active
 }
 
-func (l *GstLaunch) GetElement(name string) (*gst.GstElement, error) {
-	c_name := C.CString(name)
-	defer C.free(unsafe.Pointer(c_name))
+// GetElement finds GstElement by the name.
+func (l *GstLaunch) GetElement(name string) (*gst.Element, error) {
+	if l.closed {
+		return nil, errClosed
+	}
+	cName := C.CString(name)
+	defer C.free(unsafe.Pointer(cName))
 
-	e := C.getElement(l.cCtx, c_name)
+	e := C.getElement(l.cCtx, cName)
 	if e == nil {
 		return nil, fmt.Errorf("Failed to get %s", name)
 	}
-	return gst.NewGstElement(unsafe.Pointer(e)), nil
+	return gst.NewElement(unsafe.Pointer(e)), nil
 }
