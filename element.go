@@ -10,10 +10,34 @@ package gst
 // {
 //   return GST_STATE(element);
 // }
+// GValue* newGValue()
+// {
+//   GValue* value = malloc(sizeof(GValue));
+//   GValue init = G_VALUE_INIT;
+//   *value = init;
+//   return value;
+// }
+// GValue* getProperty(void* element, const char* name)
+// {
+//   const gchar *names[] = { name };
+//   GValue* value = newGValue();
+//   g_object_getv(element, 1, names, value);
+//   return value;
+// }
+// void setProperty(void* element, const char* name, GValue* value)
+// {
+//   const gchar *names[] = { name };
+//   g_object_setv(element, 1, names, value);
+// }
+// GType getValueType(GValue* value)
+// {
+//   return G_VALUE_TYPE(value);
+// }
 import "C"
 
 import (
 	"fmt"
+	"reflect"
 	"runtime"
 	"unsafe"
 )
@@ -76,4 +100,44 @@ func (s *Element) UnsafePointer() unsafe.Pointer {
 // State returns the current state of the element.
 func (s *Element) State() State {
 	return State(C.getElementState(s.p))
+}
+
+// GetProperty returns property of the element.
+func (s *Element) GetProperty(name string) (interface{}, error) {
+	cName := C.CString(name)
+	defer C.free(unsafe.Pointer(cName))
+	v := C.getProperty(s.UnsafePointer(), cName)
+	defer C.free(unsafe.Pointer(v))
+
+	t := C.getValueType(v)
+	switch t {
+	case C.G_TYPE_INT:
+		return int(C.g_value_get_int(v)), nil
+	case C.G_TYPE_UINT:
+		return uint(C.g_value_get_uint(v)), nil
+	default:
+		return nil, fmt.Errorf("Unsupported GValue type %d", t)
+	}
+}
+
+// SetProperty sets property of the element.
+func (s *Element) SetProperty(name string, val interface{}) error {
+	v := C.newGValue()
+	defer C.free(unsafe.Pointer(v))
+
+	switch val := val.(type) {
+	case int:
+		C.g_value_init(v, C.G_TYPE_INT)
+		C.g_value_set_int(v, C.int(val))
+	case uint:
+		C.g_value_init(v, C.G_TYPE_UINT)
+		C.g_value_set_uint(v, C.uint(val))
+	default:
+		return fmt.Errorf("Unsupported GValue type %d", reflect.TypeOf(val).Kind())
+	}
+
+	cName := C.CString(name)
+	defer C.free(unsafe.Pointer(cName))
+	C.setProperty(s.UnsafePointer(), cName, v)
+	return nil
 }
