@@ -53,6 +53,10 @@ package gst
 // {
 //   return G_VALUE_TYPE(value);
 // }
+// void sendEOS(void* element)
+// {
+//   gst_element_send_event(element, gst_event_new_eos());
+// }
 import "C"
 
 import (
@@ -175,4 +179,9 @@ func (s *Element) SetProperty(name string, val interface{}) error {
 	defer C.free(unsafe.Pointer(cName))
 	C.setProperty(s.UnsafePointer(), cName, v)
 	return nil
+}
+
+// EOS sends end-of-stream message to the element.
+func (s *Element) EOS() {
+	C.sendEOS(s.UnsafePointer())
 }
