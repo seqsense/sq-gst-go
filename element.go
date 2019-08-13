@@ -53,9 +53,13 @@ package gst
 // {
 //   return G_VALUE_TYPE(value);
 // }
-// void sendEOS(void* element)
+// void sendElementEOS(void* element)
 // {
 //   gst_element_send_event(element, gst_event_new_eos());
+// }
+// void setElementLock(void* element, int state)
+// {
+//   gst_element_set_locked_state(element, state);
 // }
 import "C"
 
@@ -183,5 +187,15 @@ func (s *Element) SetProperty(name string, val interface{}) error {
 
 // EOS sends end-of-stream message to the element.
 func (s *Element) EOS() {
-	C.sendEOS(s.UnsafePointer())
+	C.sendElementEOS(s.UnsafePointer())
+}
+
+// Lock set locked state of the element.
+func (s *Element) Lock() {
+	C.setElementLock(s.UnsafePointer(), 1)
+}
+
+// Unlock set locked state of the element.
+func (s *Element) Unlock() {
+	C.setElementLock(s.UnsafePointer(), 0)
 }
