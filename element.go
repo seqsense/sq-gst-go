@@ -10,6 +10,10 @@ package gst
 // {
 //   return GST_STATE(element);
 // }
+// void setElementState(void* element, int state)
+// {
+//   gst_element_set_state(element, state);
+// }
 import "C"
 
 import (
@@ -76,4 +80,9 @@ func (s *Element) UnsafePointer() unsafe.Pointer {
 // State returns the current state of the element.
 func (s *Element) State() State {
 	return State(C.getElementState(s.p))
+}
+
+// SetState changes the current state of the element.
+func (s *Element) SetState(st State) {
+	C.setElementState(s.p, C.int(st))
 }
