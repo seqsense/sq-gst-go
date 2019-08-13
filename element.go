@@ -135,6 +135,7 @@ func (s *Element) SetProperty(name string, val interface{}) error {
 	default:
 		return fmt.Errorf("Unsupported GValue type %d", reflect.TypeOf(val).Kind())
 	}
+	defer C.g_value_unset(v)
 
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
