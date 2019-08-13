@@ -50,3 +50,23 @@ func TestSetProperty_Int(t *testing.T) {
 		t.Fatalf("Wrong return value type: %s", reflect.TypeOf(v).Kind())
 	}
 }
+
+func TestSetProperty_String(t *testing.T) {
+	e := NewElement(dummyelement.New())
+	if err := e.SetProperty("name", "the-element"); err != nil {
+		t.Fatalf("Failed to SetProperty: %v", err)
+	}
+
+	p, err := e.GetProperty("name")
+	if err != nil {
+		t.Fatalf("Failed to GetProperty: %v", err)
+	}
+	switch v := p.(type) {
+	case string:
+		if v != "the-element" {
+			t.Errorf("fakesink.name must be \"the-element\", but got %s", v)
+		}
+	default:
+		t.Fatalf("Wrong return value type: %s", reflect.TypeOf(v).Kind())
+	}
+}

@@ -115,6 +115,8 @@ func (s *Element) GetProperty(name string) (interface{}, error) {
 		return int(C.g_value_get_int(v)), nil
 	case C.G_TYPE_UINT:
 		return uint(C.g_value_get_uint(v)), nil
+	case C.G_TYPE_STRING:
+		return C.GoString(C.g_value_get_string(v)), nil
 	default:
 		return nil, fmt.Errorf("Unsupported GValue type %d", t)
 	}
@@ -132,6 +134,11 @@ func (s *Element) SetProperty(name string, val interface{}) error {
 	case uint:
 		C.g_value_init(v, C.G_TYPE_UINT)
 		C.g_value_set_uint(v, C.uint(val))
+	case string:
+		cValue := C.CString(val)
+		defer C.free(unsafe.Pointer(cValue))
+		C.g_value_init(v, C.G_TYPE_STRING)
+		C.g_value_set_string(v, cValue)
 	default:
 		return fmt.Errorf("Unsupported GValue type %d", reflect.TypeOf(val).Kind())
 	}
