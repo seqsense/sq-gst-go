@@ -19,6 +19,11 @@ package gst
 //   *value = init;
 //   return value;
 // }
+// void freeGValue(GValue* value)
+// {
+//   g_value_unset(value);
+//   free(value);
+// }
 // GValue* getProperty(void* element, const char* name)
 // {
 //   g_object_ref(element);
@@ -121,7 +126,7 @@ func (s *Element) GetProperty(name string) (interface{}, error) {
 	if v == nil {
 		return nil, fmt.Errorf("Property not found")
 	}
-	defer C.free(unsafe.Pointer(v))
+	defer C.freeGValue(v)
 
 	t := C.getValueType(v)
 	switch t {
@@ -139,7 +144,7 @@ func (s *Element) GetProperty(name string) (interface{}, error) {
 // SetProperty sets property of the element.
 func (s *Element) SetProperty(name string, val interface{}) error {
 	v := C.newGValue()
-	defer C.free(unsafe.Pointer(v))
+	defer C.freeGValue(v)
 
 	switch val := val.(type) {
 	case int:
@@ -156,7 +161,6 @@ func (s *Element) SetProperty(name string, val interface{}) error {
 	default:
 		return fmt.Errorf("Unsupported GValue type %d", reflect.TypeOf(val).Kind())
 	}
-	defer C.g_value_unset(v)
 
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
