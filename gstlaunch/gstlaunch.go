@@ -83,7 +83,7 @@ func (l *GstLaunch) unref() error {
 	return nil
 }
 
-// New creates a new GstPipeline wrapper from launch string. It panics on fail.
+// MustNew creates a new GstPipeline wrapper from launch string. It panics on fail.
 func MustNew(launch string) *GstLaunch {
 	l, err := New(launch)
 	if err != nil {
