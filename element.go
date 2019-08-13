@@ -21,15 +21,24 @@ package gst
 // }
 // GValue* getProperty(void* element, const char* name)
 // {
-//   const gchar *names[] = { name };
+//   g_object_ref(element);
+//   GObjectClass klass;
+//   klass.g_type_class.g_type = G_OBJECT_TYPE(element);
+//   GParamSpec* pspec = g_object_class_find_property(&klass, name);
+//   if (pspec == NULL)
+//   {
+//     g_object_unref(element);
+//     return NULL;
+//   }
 //   GValue* value = newGValue();
-//   g_object_getv(element, 1, names, value);
+//   g_value_init(value, G_PARAM_SPEC_VALUE_TYPE(pspec));
+//   g_object_get_property(element, name, value);
+//   g_object_unref(element);
 //   return value;
 // }
 // void setProperty(void* element, const char* name, GValue* value)
 // {
-//   const gchar *names[] = { name };
-//   g_object_setv(element, 1, names, value);
+//   g_object_set_property(element, name, value);
 // }
 // GType getValueType(GValue* value)
 // {
@@ -109,6 +118,9 @@ func (s *Element) GetProperty(name string) (interface{}, error) {
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
 	v := C.getProperty(s.UnsafePointer(), cName)
+	if v == nil {
+		return nil, fmt.Errorf("Property not found")
+	}
 	defer C.free(unsafe.Pointer(v))
 
 	t := C.getValueType(v)
