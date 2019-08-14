@@ -31,7 +31,7 @@ type GstLaunch struct {
 	cbError func(*GstLaunch)
 	cbState func(*GstLaunch, gst.State, gst.State, gst.State)
 	index   int
-	cbLock  sync.Mutex
+	mu      sync.RWMutex
 }
 
 var (
@@ -51,7 +51,7 @@ func New(launch string) (*GstLaunch, error) {
 		cbEOS:   nil,
 		cbError: nil,
 		cbState: nil,
-		cbLock:  sync.Mutex{},
+		mu:      sync.RWMutex{},
 	}
 
 	cPointerMapMutex.Lock()
@@ -97,7 +97,9 @@ func (l *GstLaunch) RegisterErrorCallback(f func(*GstLaunch)) error {
 	if l.closed {
 		return errClosed
 	}
+	l.mu.Lock()
 	l.cbError = f
+	l.mu.Unlock()
 	return nil
 }
 
@@ -106,7 +108,9 @@ func (l *GstLaunch) RegisterEOSCallback(f func(*GstLaunch)) error {
 	if l.closed {
 		return errClosed
 	}
+	l.mu.Lock()
 	l.cbEOS = f
+	l.mu.Unlock()
 	return nil
 }
 
@@ -115,7 +119,9 @@ func (l *GstLaunch) RegisterStateCallback(f func(*GstLaunch, gst.State, gst.Stat
 	if l.closed {
 		return errClosed
 	}
+	l.mu.Lock()
 	l.cbState = f
+	l.mu.Unlock()
 	return nil
 }
 
@@ -128,10 +134,11 @@ func goCbEOS(i C.int) {
 		log.Printf("Failed to map pointer from cgo func (EOS message, %d)", int(i))
 		return
 	}
-	if l.cbEOS != nil {
-		l.cbLock.Lock()
-		l.cbEOS(l)
-		l.cbLock.Unlock()
+	l.mu.RLock()
+	cb := l.cbEOS
+	l.mu.RUnlock()
+	if cb != nil {
+		cb(l)
 	}
 }
 
@@ -144,10 +151,11 @@ func goCbError(i C.int) {
 		log.Printf("Failed to map pointer from cgo func (error message, %d)", int(i))
 		return
 	}
-	if l.cbError != nil {
-		l.cbLock.Lock()
-		l.cbError(l)
-		l.cbLock.Unlock()
+	l.mu.RLock()
+	cb := l.cbError
+	l.mu.RUnlock()
+	if cb != nil {
+		cb(l)
 	}
 }
 
@@ -164,10 +172,11 @@ func goCbState(i C.int, oldState, newState, pendingState C.uint) {
 }
 
 func (l *GstLaunch) setState(o, n, p gst.State) {
-	if l.cbState != nil {
-		l.cbLock.Lock()
-		l.cbState(l, o, n, p)
-		l.cbLock.Unlock()
+	l.mu.RLock()
+	cb := l.cbState
+	l.mu.RUnlock()
+	if cb != nil {
+		cb(l, o, n, p)
 	}
 	switch n {
 	case gst.StatePlaying:

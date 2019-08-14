@@ -7,6 +7,7 @@
   \author Atsushi Watanabe (SEQSENSE, Inc.)
  **/
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <gst/gst.h>
 
@@ -59,9 +60,20 @@ Context* create(const char* launch, int user_int)
   pipeline = gst_parse_launch(launch, &err);
   if (err != NULL)
   {
+    fprintf(stderr, "gst_parse_launch failed: %s\n", err->message);
+    return NULL;
+  }
+  if (pipeline == NULL)
+  {
+    fprintf(stderr, "gst_parse_launch failed without error\n");
     return NULL;
   }
   ctx = malloc(sizeof(Context));
+  if (ctx == NULL)
+  {
+    fprintf(stderr, "failed to allocate memory for gstlaunch context\n");
+    return NULL;
+  }
   ctx->pipeline = pipeline;
   ctx->user_int = user_int;
 
