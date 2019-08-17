@@ -72,12 +72,20 @@ Context* create(const char* launch, int user_int)
   if (ctx == NULL)
   {
     fprintf(stderr, "failed to allocate memory for gstlaunch context\n");
+    gst_object_unref(pipeline);
     return NULL;
   }
   ctx->pipeline = pipeline;
   ctx->user_int = user_int;
 
   ctx->bus = gst_element_get_bus(pipeline);
+  if (ctx->bus == NULL)
+  {
+    fprintf(stderr, "failed to get bus of the pipeline\n");
+    gst_object_unref(pipeline);
+    free(ctx);
+    return NULL;
+  }
   ctx->watch_tag = gst_bus_add_watch(ctx->bus, cbMessage, ctx);
 
   return ctx;
