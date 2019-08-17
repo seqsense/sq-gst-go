@@ -57,7 +57,10 @@ Context* create(const char* launch, int user_int)
   GError* err = NULL;
   GstElement* src;
 
+  fprintf(stderr, "trace: gst_parse_launch\n");
+  fprintf(stderr, "trace: launch: %s\n", launch);
   pipeline = gst_parse_launch(launch, &err);
+  fprintf(stderr, "trace: pipeline %x, err %x\n", pipeline, err);
   if (err != NULL)
   {
     fprintf(stderr, "gst_parse_launch failed: %s\n", err->message);
@@ -68,6 +71,7 @@ Context* create(const char* launch, int user_int)
     fprintf(stderr, "gst_parse_launch failed without error\n");
     return NULL;
   }
+  fprintf(stderr, "trace: malloc\n");
   ctx = malloc(sizeof(Context));
   if (ctx == NULL)
   {
@@ -78,6 +82,7 @@ Context* create(const char* launch, int user_int)
   ctx->pipeline = pipeline;
   ctx->user_int = user_int;
 
+  fprintf(stderr, "trace: gst_element_get_bus\n");
   ctx->bus = gst_element_get_bus(pipeline);
   if (ctx->bus == NULL)
   {
@@ -86,6 +91,7 @@ Context* create(const char* launch, int user_int)
     free(ctx);
     return NULL;
   }
+  fprintf(stderr, "trace: gst_bus_add_watch\n");
   ctx->watch_tag = gst_bus_add_watch(ctx->bus, cbMessage, ctx);
 
   return ctx;
