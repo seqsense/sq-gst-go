@@ -162,7 +162,7 @@ func TestKill(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				l, err := New("udpsrc port=5000 ! queue ! fakesink")
+				l, err := New("audiotestsrc ! queue ! fakesink")
 				if err != nil {
 					t.Errorf("Failed to create pipeline: %v", err)
 					return
