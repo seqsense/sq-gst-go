@@ -14,6 +14,7 @@
 
 #include "gstlaunch.h"
 
+static GMutex g_mutex;
 static GMainLoop* g_mainloop;
 
 void init(char* exec_name)
@@ -69,15 +70,18 @@ Context* create(const char* launch, int user_int)
   GError* err = NULL;
   GstElement* src;
 
+  g_mutex_lock(&g_mutex);
   pipeline = gst_parse_launch(launch, &err);
   if (pipeline == NULL)
   {
+    g_mutex_unlock(&g_mutex);
     fprintf(stderr, "gst_parse_launch failed: %s\n", err->message);
     return NULL;
   }
   ctx = malloc(sizeof(Context));
   if (ctx == NULL)
   {
+    g_mutex_unlock(&g_mutex);
     fprintf(stderr, "failed to allocate memory for gstlaunch context\n");
     return NULL;
   }
@@ -90,6 +94,7 @@ Context* create(const char* launch, int user_int)
   ctx->watch_tag = gst_bus_add_watch(bus, cbMessage, ctx);
   g_object_unref(bus);
 
+  g_mutex_unlock(&g_mutex);
   return ctx;
 }
 void pipelineStart(Context* ctx)
@@ -111,6 +116,7 @@ void pipelineUnref(Context* ctx)
 }
 void pipelineFree(Context* ctx)
 {
+  g_mutex_lock(&g_mutex);
   g_mutex_lock(&ctx->mutex);
   if (ctx->closed == CLOSING)
   {
@@ -120,6 +126,7 @@ void pipelineFree(Context* ctx)
   g_mutex_unlock(&ctx->mutex);
 
   free(ctx);
+  g_mutex_unlock(&g_mutex);
 }
 GstElement* getElement(Context* ctx, const char* name)
 {
