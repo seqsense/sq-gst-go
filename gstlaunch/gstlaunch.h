@@ -16,7 +16,6 @@
 typedef struct
 {
   GstElement* pipeline;
-  GstBus* bus;
   int user_int;
   unsigned int watch_tag;
 } Context;

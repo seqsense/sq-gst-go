@@ -77,8 +77,9 @@ Context* create(const char* launch, int user_int)
   ctx->pipeline = pipeline;
   ctx->user_int = user_int;
 
-  ctx->bus = gst_element_get_bus(pipeline);
-  ctx->watch_tag = gst_bus_add_watch(ctx->bus, cbMessage, ctx);
+  GstBus* bus = gst_element_get_bus(ctx->pipeline);
+  ctx->watch_tag = gst_bus_add_watch(bus, cbMessage, ctx);
+  g_object_unref(bus);
 
   return ctx;
 }
@@ -93,7 +94,6 @@ void pipelineStop(Context* ctx)
 void pipelineUnref(Context* ctx)
 {
   gst_element_set_state(ctx->pipeline, GST_STATE_NULL);
-  g_object_unref(ctx->bus);
   g_source_remove(ctx->watch_tag);
   gst_object_unref(ctx->pipeline);
   free(ctx);
