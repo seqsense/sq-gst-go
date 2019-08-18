@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"sync"
+	"time"
 	"unsafe"
 
 	gst "github.com/seqsense/sq-gst-go"
@@ -75,11 +76,17 @@ func (l *GstLaunch) unref() error {
 		return errClosed
 	}
 	l.closed = true
-	C.pipelineUnref(l.cCtx)
+	go func() {
+		C.pipelineUnref(l.cCtx)
 
-	cPointerMapMutex.Lock()
-	delete(cPointerMap, l.index)
-	cPointerMapMutex.Unlock()
+		cPointerMapMutex.Lock()
+		delete(cPointerMap, l.index)
+		cPointerMapMutex.Unlock()
+
+		// FIXME(at-wat): find more proper way to ensure no more handlers are called
+		time.Sleep(time.Second)
+		C.pipelineFree(l.cCtx)
+	}()
 	return nil
 }
 

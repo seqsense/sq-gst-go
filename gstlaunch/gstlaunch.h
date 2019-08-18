@@ -15,9 +15,16 @@
 
 typedef struct
 {
+  GMutex mutex;
   GstElement* pipeline;
   int user_int;
   unsigned int watch_tag;
+  enum
+  {
+    IDLE,
+    CLOSING,
+    CLOSED,
+  } closed;
 } Context;
 
 extern void goCbEOS(int id);
@@ -31,6 +38,7 @@ Context* create(const char* launch, int user_int);
 void pipelineStart(Context* ctx);
 void pipelineStop(Context* ctx);
 void pipelineUnref(Context* ctx);
+void pipelineFree(Context* ctx);
 GstElement* getElement(Context* ctx, const char* name);
 
 #endif  // GSTLAUNCH_H
