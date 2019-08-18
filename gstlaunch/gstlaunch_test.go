@@ -1,6 +1,7 @@
 package gstlaunch
 
 import (
+	"sync"
 	"testing"
 	"time"
 
@@ -150,4 +151,28 @@ func TestGetElement(t *testing.T) {
 	}
 
 	l.Kill()
+}
+
+func TestKill(t *testing.T) {
+	var wg sync.WaitGroup
+
+	// This test causes segmentation fault on race condition
+	for i := 0; i < 100; i++ {
+		for i := 0; i < 100; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				l, err := New("audiotestsrc ! queue ! fakesink")
+				if err != nil {
+					t.Errorf("Failed to create pipeline: %v", err)
+					return
+				}
+				l.Start()
+				l.Kill()
+			}()
+		}
+		wg.Wait()
+		// Wait for file descriptors releaesd
+		time.Sleep(10 * time.Millisecond)
+	}
 }

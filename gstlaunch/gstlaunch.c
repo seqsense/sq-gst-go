@@ -9,11 +9,13 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+
 #include <gst/gst.h>
 
 #include "gstlaunch.h"
 
-GMainLoop* g_mainloop;
+static GMutex g_mutex;
+static GMainLoop* g_mainloop;
 
 void init(char* exec_name)
 {
@@ -32,6 +34,17 @@ static gboolean cbMessage(GstBus* bus, GstMessage* msg, gpointer p)
 {
   Context* ctx = (Context*)p;
 
+  g_mutex_lock(&ctx->mutex);
+  if (ctx->closed >= CLOSING)
+  {
+    if (ctx->closed == CLOSED)
+      fprintf(stderr, "Received message from removed source: %d\n", ctx->user_int);
+    ctx->closed = CLOSED;
+    g_mutex_unlock(&ctx->mutex);
+    return FALSE;
+  }
+  g_mutex_unlock(&ctx->mutex);
+
   if ((GST_MESSAGE_TYPE(msg) & GST_MESSAGE_EOS))
     goCbEOS(ctx->user_int);
 
@@ -40,7 +53,7 @@ static gboolean cbMessage(GstBus* bus, GstMessage* msg, gpointer p)
 
   if ((GST_MESSAGE_TYPE(msg) & GST_MESSAGE_STATE_CHANGED))
   {
-    if (GST_MESSAGE_SRC(msg) == GST_OBJECT(ctx->pipeline))
+    if ((void*)GST_MESSAGE_SRC(msg) == (void*)ctx->pipeline)
     {
       GstState old_state, new_state, pending_state;
       gst_message_parse_state_changed(msg, &old_state, &new_state, &pending_state);
@@ -57,29 +70,31 @@ Context* create(const char* launch, int user_int)
   GError* err = NULL;
   GstElement* src;
 
+  g_mutex_lock(&g_mutex);
   pipeline = gst_parse_launch(launch, &err);
-  if (err != NULL)
-  {
-    fprintf(stderr, "gst_parse_launch failed: %s\n", err->message);
-    return NULL;
-  }
   if (pipeline == NULL)
   {
-    fprintf(stderr, "gst_parse_launch failed without error\n");
+    g_mutex_unlock(&g_mutex);
+    fprintf(stderr, "gst_parse_launch failed: %s\n", err->message);
     return NULL;
   }
   ctx = malloc(sizeof(Context));
   if (ctx == NULL)
   {
+    g_mutex_unlock(&g_mutex);
     fprintf(stderr, "failed to allocate memory for gstlaunch context\n");
     return NULL;
   }
   ctx->pipeline = pipeline;
   ctx->user_int = user_int;
+  ctx->closed = IDLE;
+  g_mutex_init(&ctx->mutex);
 
-  ctx->bus = gst_element_get_bus(pipeline);
-  ctx->watch_tag = gst_bus_add_watch(ctx->bus, cbMessage, ctx);
+  GstBus* bus = gst_element_get_bus(ctx->pipeline);
+  ctx->watch_tag = gst_bus_add_watch(bus, cbMessage, ctx);
+  g_object_unref(bus);
 
+  g_mutex_unlock(&g_mutex);
   return ctx;
 }
 void pipelineStart(Context* ctx)
@@ -92,11 +107,26 @@ void pipelineStop(Context* ctx)
 }
 void pipelineUnref(Context* ctx)
 {
+  g_mutex_lock(&ctx->mutex);
+  ctx->closed = CLOSING;
+  g_mutex_unlock(&ctx->mutex);
+
   gst_element_set_state(ctx->pipeline, GST_STATE_NULL);
-  g_object_unref(ctx->bus);
-  g_source_remove(ctx->watch_tag);
   gst_object_unref(ctx->pipeline);
+}
+void pipelineFree(Context* ctx)
+{
+  g_mutex_lock(&g_mutex);
+  g_mutex_lock(&ctx->mutex);
+  if (ctx->closed == CLOSING)
+  {
+    ctx->closed = CLOSED;
+    g_source_remove(ctx->watch_tag);
+  }
+  g_mutex_unlock(&ctx->mutex);
+
   free(ctx);
+  g_mutex_unlock(&g_mutex);
 }
 GstElement* getElement(Context* ctx, const char* name)
 {
