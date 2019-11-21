@@ -158,6 +158,7 @@ GstElement** getAllElements(Context* ctx)
       }
     }
   }
+  gst_iterator_free(it);
   elements[i] = NULL;
   return elements;
 }
