@@ -161,14 +161,17 @@ func goCbError(i C.int, e unsafe.Pointer, msg *C.char, msgSize C.int, dbgInfo *C
 	l.mu.RLock()
 	cb := l.cbError
 	l.mu.RUnlock()
+
+	msgGo := C.GoStringN(msg, msgSize)
+	dbgInfoGo := ""
+	if dbgInfo != nil {
+		dbgInfoGo = C.GoStringN(dbgInfo, dbgInfoSize)
+	}
 	if cb != nil {
-		msgGo := C.GoStringN(msg, msgSize)
-		dbgInfoGo := ""
-		if dbgInfo != nil {
-			dbgInfoGo = C.GoStringN(dbgInfo, dbgInfoSize)
-		}
 		C.refElement(e)
 		cb(l, gst.NewElement(e), msgGo, dbgInfoGo)
+	} else {
+		log.Printf("Unhandled error message \"%s\":\n%s", msgGo, dbgInfoGo)
 	}
 }
 
