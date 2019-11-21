@@ -147,6 +147,7 @@ GstElement** getAllElements(Context* ctx)
       case GST_ITERATOR_OK:
       {
         elements[i] = g_value_get_object(&val);
+        gst_object_ref(elements[i]);
         ++i;
         g_value_unset(&val);
         break;
