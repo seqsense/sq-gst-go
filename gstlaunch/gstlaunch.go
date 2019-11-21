@@ -29,7 +29,7 @@ type GstLaunch struct {
 	active  bool
 	closed  bool
 	cbEOS   func(*GstLaunch)
-	cbError func(*GstLaunch)
+	cbError func(*GstLaunch, *gst.Element, string, string)
 	cbState func(*GstLaunch, gst.State, gst.State, gst.State)
 	index   int
 	mu      sync.RWMutex
@@ -100,7 +100,7 @@ func MustNew(launch string) *GstLaunch {
 }
 
 // RegisterErrorCallback registers error message handler callback.
-func (l *GstLaunch) RegisterErrorCallback(f func(*GstLaunch)) error {
+func (l *GstLaunch) RegisterErrorCallback(f func(*GstLaunch, *gst.Element, string, string)) error {
 	if l.closed {
 		return errClosed
 	}
@@ -150,7 +150,7 @@ func goCbEOS(i C.int) {
 }
 
 //export goCbError
-func goCbError(i C.int) {
+func goCbError(i C.int, e unsafe.Pointer, msg *C.char, msgSize C.int, dbgInfo *C.char, dbgInfoSize C.int) {
 	cPointerMapMutex.RLock()
 	l, ok := cPointerMap[int(i)]
 	cPointerMapMutex.RUnlock()
@@ -162,7 +162,13 @@ func goCbError(i C.int) {
 	cb := l.cbError
 	l.mu.RUnlock()
 	if cb != nil {
-		cb(l)
+		msgGo := C.GoStringN(msg, msgSize)
+		dbgInfoGo := ""
+		if dbgInfo != nil {
+			dbgInfoGo = C.GoStringN(dbgInfo, dbgInfoSize)
+		}
+		C.refElement(e)
+		cb(l, gst.NewElement(e), msgGo, dbgInfoGo)
 	}
 }
 
