@@ -132,3 +132,36 @@ GstElement* getElement(Context* ctx, const char* name)
 {
   return gst_bin_get_by_name(GST_BIN(ctx->pipeline), name);
 }
+GstElement** getAllElements(Context* ctx)
+{
+  GstElement** elements =
+      malloc(sizeof(GstElement*) * (GST_BIN_NUMCHILDREN(GST_BIN(ctx->pipeline)) + 1));
+  int i = 0;
+  GstIterator* it = gst_bin_iterate_elements(GST_BIN(ctx->pipeline));
+
+  for (gboolean done = FALSE; !done;)
+  {
+    GValue val = G_VALUE_INIT;
+    switch (gst_iterator_next(it, &val))
+    {
+      case GST_ITERATOR_OK:
+      {
+        elements[i] = g_value_get_object(&val);
+        ++i;
+        g_value_unset(&val);
+        break;
+      }
+      default:
+      {
+        done = TRUE;
+        break;
+      }
+    }
+  }
+  elements[i] = NULL;
+  return elements;
+}
+GstElement* elementAt(GstElement** es, const int i)
+{
+  return es[i];
+}

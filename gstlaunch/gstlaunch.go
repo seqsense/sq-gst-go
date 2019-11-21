@@ -241,3 +241,22 @@ func (l *GstLaunch) GetElement(name string) (*gst.Element, error) {
 	}
 	return gst.NewElement(unsafe.Pointer(e)), nil
 }
+
+// GetAllElements returns all GstElement in the pipeline.
+func (l *GstLaunch) GetAllElements() ([]*gst.Element, error) {
+	if l.closed {
+		return nil, errClosed
+	}
+	var ret []*gst.Element
+	es := C.getAllElements(l.cCtx)
+	defer C.free(unsafe.Pointer(es))
+
+	for i := 0; ; i++ {
+		e := C.elementAt(es, C.int(i))
+		if e == nil {
+			break
+		}
+		ret = append(ret, gst.NewElement(unsafe.Pointer(e)))
+	}
+	return ret, nil
+}
