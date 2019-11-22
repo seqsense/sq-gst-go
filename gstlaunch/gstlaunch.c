@@ -96,6 +96,7 @@ Context* create(const char* launch, int user_int)
   ctx = malloc(sizeof(Context));
   if (ctx == NULL)
   {
+    gst_object_unref(ctx->pipeline);
     g_mutex_unlock(&g_mutex);
     fprintf(stderr, "failed to allocate memory for gstlaunch context\n");
     return NULL;
@@ -108,6 +109,15 @@ Context* create(const char* launch, int user_int)
   GstBus* bus = gst_element_get_bus(ctx->pipeline);
   ctx->watch_tag = gst_bus_add_watch(bus, cbMessage, ctx);
   g_object_unref(bus);
+
+  if (ctx->watch_tag == 0)
+  {
+    fprintf(stderr, "failed to add watch to gstlaunch context\n");
+    gst_object_unref(ctx->pipeline);
+    free(ctx);
+    g_mutex_unlock(&g_mutex);
+    return NULL;
+  }
 
   g_mutex_unlock(&g_mutex);
   return ctx;
@@ -127,19 +137,21 @@ void pipelineUnref(Context* ctx)
   g_mutex_unlock(&ctx->mutex);
 
   gst_element_set_state(ctx->pipeline, GST_STATE_NULL);
-  gst_object_unref(ctx->pipeline);
 }
 void pipelineFree(Context* ctx)
 {
   g_mutex_lock(&g_mutex);
   g_mutex_lock(&ctx->mutex);
+
   if (ctx->closed == CLOSING)
   {
     ctx->closed = CLOSED;
     g_source_remove(ctx->watch_tag);
   }
+  gst_object_unref(ctx->pipeline);
   g_mutex_unlock(&ctx->mutex);
 
+  g_mutex_clear(&ctx->mutex);
   free(ctx);
   g_mutex_unlock(&g_mutex);
 }

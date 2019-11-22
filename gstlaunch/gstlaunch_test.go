@@ -169,8 +169,8 @@ func TestGetElement(t *testing.T) {
 func TestKill(t *testing.T) {
 	var wg sync.WaitGroup
 
-	// This test causes segmentation fault on race condition
-	for i := 0; i < 100; i++ {
+	// Test segmentation fault of glib mainloop related race condition
+	for i := 0; i < 5; i++ {
 		for i := 0; i < 100; i++ {
 			wg.Add(1)
 			go func() {
@@ -185,7 +185,13 @@ func TestKill(t *testing.T) {
 			}()
 		}
 		wg.Wait()
-		// Wait for file descriptors releaesd
-		time.Sleep(10 * time.Millisecond)
+		// Wait for file descriptors releaesd to avoid fd limit
+		i := 200
+		for getNumCtx() > 0 {
+			time.Sleep(10 * time.Millisecond)
+			if i--; i <= 0 {
+				t.Fatalf("Pipeline context is not cleared (%d remains)", getNumCtx())
+			}
+		}
 	}
 }
