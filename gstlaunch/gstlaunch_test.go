@@ -64,10 +64,23 @@ func TestLaunch_eosHandling(t *testing.T) {
 }
 
 func TestLaunch_errorHandling(t *testing.T) {
-	l := MustNew("appsrc ! watchdog timeout=150 ! fakesink")
+	l := MustNew("appsrc ! watchdog name=wd timeout=150 ! fakesink")
 
 	errCh := make(chan struct{})
-	l.RegisterErrorCallback(func(l *GstLaunch) {
+	l.RegisterErrorCallback(func(l *GstLaunch, e *gst.Element, msg string, dbgInfo string) {
+		name, err := e.GetProperty("name")
+		if err != nil {
+			t.Errorf("failed to get name of the error source: %v", err)
+		} else {
+			if nameStr, ok := name.(string); !ok {
+				t.Error("name of the element is not string")
+			} else if nameStr != "wd" {
+				t.Errorf("unexpected error source %s, expected \"wd\"", nameStr)
+			}
+		}
+		if msg != "Watchdog triggered" {
+			t.Errorf("unexpected error message %s, expected \"Watchdog triggered\"", msg)
+		}
 		errCh <- struct{}{}
 	})
 	l.Start()
@@ -185,8 +198,8 @@ func TestGetAllElements(t *testing.T) {
 func TestKill(t *testing.T) {
 	var wg sync.WaitGroup
 
-	// This test causes segmentation fault on race condition
-	for i := 0; i < 100; i++ {
+	// Test segmentation fault of glib mainloop related race condition
+	for i := 0; i < 5; i++ {
 		for i := 0; i < 100; i++ {
 			wg.Add(1)
 			go func() {
@@ -201,7 +214,13 @@ func TestKill(t *testing.T) {
 			}()
 		}
 		wg.Wait()
-		// Wait for file descriptors releaesd
-		time.Sleep(10 * time.Millisecond)
+		// Wait for file descriptors releaesd to avoid fd limit
+		i := 200
+		for getNumCtx() > 0 {
+			time.Sleep(10 * time.Millisecond)
+			if i--; i <= 0 {
+				t.Fatalf("Pipeline context is not cleared (%d remains)", getNumCtx())
+			}
+		}
 	}
 }

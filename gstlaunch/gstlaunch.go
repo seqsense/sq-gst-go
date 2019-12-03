@@ -29,7 +29,7 @@ type GstLaunch struct {
 	active  bool
 	closed  bool
 	cbEOS   func(*GstLaunch)
-	cbError func(*GstLaunch)
+	cbError func(*GstLaunch, *gst.Element, string, string)
 	cbState func(*GstLaunch, gst.State, gst.State, gst.State)
 	index   int
 	mu      sync.RWMutex
@@ -39,6 +39,8 @@ var (
 	cPointerMapIndex int
 	cPointerMap      = make(map[int]*GstLaunch)
 	cPointerMapMutex = sync.RWMutex{}
+	numCtx           int
+	numCtxMutex      = sync.RWMutex{}
 	errClosed        = fmt.Errorf("pipeline is closed")
 )
 
@@ -65,10 +67,20 @@ func New(launch string) (*GstLaunch, error) {
 
 	cCtx := C.create(cLaunch, C.int(id))
 	if cCtx == nil {
-		return nil, fmt.Errorf("Failed to parse gst-launch text")
+		return nil, fmt.Errorf("Failed to create gstlaunch pipeline")
 	}
 	l.cCtx = cCtx
+
+	numCtxMutex.Lock()
+	numCtx++
+	numCtxMutex.Unlock()
 	return l, nil
+}
+
+func getNumCtx() int {
+	numCtxMutex.RLock()
+	defer numCtxMutex.RUnlock()
+	return numCtx
 }
 
 func (l *GstLaunch) unref() error {
@@ -77,6 +89,7 @@ func (l *GstLaunch) unref() error {
 	}
 	l.closed = true
 	go func() {
+		time.Sleep(10 * time.Millisecond)
 		C.pipelineUnref(l.cCtx)
 
 		cPointerMapMutex.Lock()
@@ -86,6 +99,9 @@ func (l *GstLaunch) unref() error {
 		// FIXME(at-wat): find more proper way to ensure no more handlers are called
 		time.Sleep(time.Second)
 		C.pipelineFree(l.cCtx)
+		numCtxMutex.Lock()
+		numCtx--
+		numCtxMutex.Unlock()
 	}()
 	return nil
 }
@@ -100,7 +116,7 @@ func MustNew(launch string) *GstLaunch {
 }
 
 // RegisterErrorCallback registers error message handler callback.
-func (l *GstLaunch) RegisterErrorCallback(f func(*GstLaunch)) error {
+func (l *GstLaunch) RegisterErrorCallback(f func(*GstLaunch, *gst.Element, string, string)) error {
 	if l.closed {
 		return errClosed
 	}
@@ -150,7 +166,7 @@ func goCbEOS(i C.int) {
 }
 
 //export goCbError
-func goCbError(i C.int) {
+func goCbError(i C.int, e unsafe.Pointer, msg *C.char, msgSize C.int, dbgInfo *C.char, dbgInfoSize C.int) {
 	cPointerMapMutex.RLock()
 	l, ok := cPointerMap[int(i)]
 	cPointerMapMutex.RUnlock()
@@ -161,8 +177,17 @@ func goCbError(i C.int) {
 	l.mu.RLock()
 	cb := l.cbError
 	l.mu.RUnlock()
+
+	msgGo := C.GoStringN(msg, msgSize)
+	dbgInfoGo := ""
+	if dbgInfo != nil {
+		dbgInfoGo = C.GoStringN(dbgInfo, dbgInfoSize)
+	}
 	if cb != nil {
-		cb(l)
+		C.refElement(e)
+		cb(l, gst.NewElement(e), msgGo, dbgInfoGo)
+	} else {
+		log.Printf("Unhandled error message \"%s\":\n%s", msgGo, dbgInfoGo)
 	}
 }
 

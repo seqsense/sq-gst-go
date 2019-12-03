@@ -28,7 +28,8 @@ typedef struct
 } Context;
 
 extern void goCbEOS(int id);
-extern void goCbError(int id);
+extern void goCbError(
+    int id, void* src, char* msg, int msg_size, char* dbg_info, int dbg_info_size);
 extern void goCbState(
     int id, unsigned int old_state, unsigned int new_state, unsigned int pending_state);
 
@@ -42,5 +43,6 @@ void pipelineFree(Context* ctx);
 GstElement* getElement(Context* ctx, const char* name);
 GstElement** getAllElements(Context* ctx);
 GstElement* elementAt(GstElement** es, const int i);
+void refElement(void* e);
 
 #endif  // GSTLAUNCH_H
