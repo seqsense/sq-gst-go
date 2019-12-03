@@ -62,10 +62,23 @@ func TestLaunch_eosHandling(t *testing.T) {
 }
 
 func TestLaunch_errorHandling(t *testing.T) {
-	l := MustNew("appsrc ! watchdog timeout=150 ! fakesink")
+	l := MustNew("appsrc ! watchdog name=wd timeout=150 ! fakesink")
 
 	errCh := make(chan struct{})
-	l.RegisterErrorCallback(func(l *GstLaunch) {
+	l.RegisterErrorCallback(func(l *GstLaunch, e *gst.Element, msg string, dbgInfo string) {
+		name, err := e.GetProperty("name")
+		if err != nil {
+			t.Errorf("failed to get name of the error source: %v", err)
+		} else {
+			if nameStr, ok := name.(string); !ok {
+				t.Error("name of the element is not string")
+			} else if nameStr != "wd" {
+				t.Errorf("unexpected error source %s, expected \"wd\"", nameStr)
+			}
+		}
+		if msg != "Watchdog triggered" {
+			t.Errorf("unexpected error message %s, expected \"Watchdog triggered\"", msg)
+		}
 		errCh <- struct{}{}
 	})
 	l.Start()

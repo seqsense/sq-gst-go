@@ -49,7 +49,22 @@ static gboolean cbMessage(GstBus* bus, GstMessage* msg, gpointer p)
     goCbEOS(ctx->user_int);
 
   if ((GST_MESSAGE_TYPE(msg) & GST_MESSAGE_ERROR))
-    goCbError(ctx->user_int);
+  {
+    GError* err = NULL;
+    gchar* dbg_info = NULL;
+
+    gst_message_parse_error(msg, &err, &dbg_info);
+    int dbg_info_size = 0;
+    if (dbg_info != NULL)
+      dbg_info_size = strlen(dbg_info);
+
+    goCbError(
+        ctx->user_int, (void*)GST_MESSAGE_SRC(msg),
+        err->message, strlen(err->message), dbg_info, dbg_info_size);
+
+    g_error_free(err);
+    g_free(dbg_info);
+  }
 
   if ((GST_MESSAGE_TYPE(msg) & GST_MESSAGE_STATE_CHANGED))
   {
@@ -131,4 +146,8 @@ void pipelineFree(Context* ctx)
 GstElement* getElement(Context* ctx, const char* name)
 {
   return gst_bin_get_by_name(GST_BIN(ctx->pipeline), name);
+}
+void refElement(void* e)
+{
+  gst_object_ref(GST_ELEMENT(e));
 }
