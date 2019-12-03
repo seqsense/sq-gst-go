@@ -39,6 +39,8 @@ var (
 	cPointerMapIndex int
 	cPointerMap      = make(map[int]*GstLaunch)
 	cPointerMapMutex = sync.RWMutex{}
+	numCtx           int
+	numCtxMutex      = sync.RWMutex{}
 	errClosed        = fmt.Errorf("pipeline is closed")
 )
 
@@ -65,10 +67,20 @@ func New(launch string) (*GstLaunch, error) {
 
 	cCtx := C.create(cLaunch, C.int(id))
 	if cCtx == nil {
-		return nil, fmt.Errorf("Failed to parse gst-launch text")
+		return nil, fmt.Errorf("Failed to create gstlaunch pipeline")
 	}
 	l.cCtx = cCtx
+
+	numCtxMutex.Lock()
+	numCtx++
+	numCtxMutex.Unlock()
 	return l, nil
+}
+
+func getNumCtx() int {
+	numCtxMutex.RLock()
+	defer numCtxMutex.RUnlock()
+	return numCtx
 }
 
 func (l *GstLaunch) unref() error {
@@ -77,6 +89,7 @@ func (l *GstLaunch) unref() error {
 	}
 	l.closed = true
 	go func() {
+		time.Sleep(10 * time.Millisecond)
 		C.pipelineUnref(l.cCtx)
 
 		cPointerMapMutex.Lock()
@@ -86,6 +99,9 @@ func (l *GstLaunch) unref() error {
 		// FIXME(at-wat): find more proper way to ensure no more handlers are called
 		time.Sleep(time.Second)
 		C.pipelineFree(l.cCtx)
+		numCtxMutex.Lock()
+		numCtx--
+		numCtxMutex.Unlock()
 	}()
 	return nil
 }
