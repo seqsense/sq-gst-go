@@ -1,6 +1,8 @@
 package gstlaunch
 
 import (
+	"reflect"
+	"sort"
 	"sync"
 	"testing"
 	"time"
@@ -164,6 +166,33 @@ func TestGetElement(t *testing.T) {
 	}
 
 	l.Kill()
+}
+
+func TestGetAllElements(t *testing.T) {
+	l := MustNew("audiotestsrc name=e0 ! queue name=e1 ! queue name=e2 ! fakesink name=e3")
+	defer l.Kill()
+
+	e, err := l.GetAllElements()
+	if err != nil {
+		t.Errorf("GetAllElement for active pipeline must not return error")
+	}
+	if len(e) != 4 {
+		t.Fatalf("Unexpected number of the returned elements %d, expected %d", len(e), 4)
+	}
+
+	namesExpected := []string{"e0", "e1", "e2", "e3"}
+	var names []string
+	for i := 0; i < 4; i++ {
+		name, err := e[i].GetProperty("name")
+		if err != nil {
+			t.Errorf("Failed to get name of element")
+		}
+		names = append(names, name.(string))
+	}
+	sort.Strings(names)
+	if !reflect.DeepEqual(namesExpected, names) {
+		t.Errorf("Unexpected names of the elements\ngot: %v\nexpected: %v", names, namesExpected)
+	}
 }
 
 func TestKill(t *testing.T) {

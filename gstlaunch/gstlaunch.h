@@ -41,6 +41,8 @@ void pipelineStop(Context* ctx);
 void pipelineUnref(Context* ctx);
 void pipelineFree(Context* ctx);
 GstElement* getElement(Context* ctx, const char* name);
+GstElement** getAllElements(Context* ctx);
+GstElement* elementAt(GstElement** es, const int i);
 void refElement(void* e);
 
 #endif  // GSTLAUNCH_H
