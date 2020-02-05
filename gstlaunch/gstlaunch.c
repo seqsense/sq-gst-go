@@ -15,19 +15,20 @@
 #include "gstlaunch.h"
 
 static GMutex g_mutex;
-static GMainLoop* g_mainloop;
 
+gpointer runMainloop(gpointer mainloop)
+{
+  g_main_loop_run(mainloop);
+  return NULL;
+}
 void init(char* exec_name)
 {
   int argc = 1;
   char** argv = &exec_name;
   gst_init(&argc, &argv);
 
-  g_mainloop = g_main_loop_new(NULL, FALSE);
-}
-void runMainloop()
-{
-  g_main_loop_run(g_mainloop);
+  GMainLoop* mainloop = g_main_loop_new(NULL, FALSE);
+  GThread* thread = g_thread_new("mainloop", runMainloop, mainloop);
 }
 
 static gboolean cbMessage(GstBus* bus, GstMessage* msg, gpointer p)
