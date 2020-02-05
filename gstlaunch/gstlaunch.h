@@ -34,7 +34,6 @@ extern void goCbState(
     int id, unsigned int old_state, unsigned int new_state, unsigned int pending_state);
 
 void init(char* exec_name);
-void runMainloop();
 Context* create(const char* launch, int user_int);
 void pipelineStart(Context* ctx);
 void pipelineStop(Context* ctx);
