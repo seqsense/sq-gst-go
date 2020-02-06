@@ -86,11 +86,11 @@ Context* create(const char* launch, int user_int)
   GError* err = NULL;
   GstElement* src;
 
-  g_mutex_lock(&g_mutex);
+  //g_mutex_lock(&g_mutex);
   pipeline = gst_parse_launch(launch, &err);
   if (pipeline == NULL)
   {
-    g_mutex_unlock(&g_mutex);
+    //g_mutex_unlock(&g_mutex);
     fprintf(stderr, "gst_parse_launch failed: %s\n", err->message);
     return NULL;
   }
@@ -98,7 +98,7 @@ Context* create(const char* launch, int user_int)
   if (ctx == NULL)
   {
     gst_object_unref(ctx->pipeline);
-    g_mutex_unlock(&g_mutex);
+    //g_mutex_unlock(&g_mutex);
     fprintf(stderr, "failed to allocate memory for gstlaunch context\n");
     return NULL;
   }
@@ -116,11 +116,11 @@ Context* create(const char* launch, int user_int)
     fprintf(stderr, "failed to add watch to gstlaunch context\n");
     gst_object_unref(ctx->pipeline);
     free(ctx);
-    g_mutex_unlock(&g_mutex);
+    //g_mutex_unlock(&g_mutex);
     return NULL;
   }
 
-  g_mutex_unlock(&g_mutex);
+  //g_mutex_unlock(&g_mutex);
   return ctx;
 }
 void pipelineStart(Context* ctx)
@@ -141,7 +141,7 @@ void pipelineUnref(Context* ctx)
 }
 void pipelineFree(Context* ctx)
 {
-  g_mutex_lock(&g_mutex);
+  //g_mutex_lock(&g_mutex);
   g_mutex_lock(&ctx->mutex);
 
   if (ctx->closed == CLOSING)
@@ -154,7 +154,7 @@ void pipelineFree(Context* ctx)
 
   g_mutex_clear(&ctx->mutex);
   free(ctx);
-  g_mutex_unlock(&g_mutex);
+  //g_mutex_unlock(&g_mutex);
 }
 GstElement* getElement(Context* ctx, const char* name)
 {

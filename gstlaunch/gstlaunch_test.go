@@ -199,7 +199,7 @@ func TestKill(t *testing.T) {
 	var wg sync.WaitGroup
 
 	// Test segmentation fault of glib mainloop related race condition
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 10; i++ {
 		for i := 0; i < 100; i++ {
 			wg.Add(1)
 			go func() {
