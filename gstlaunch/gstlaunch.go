@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unsafe"
 
@@ -24,8 +25,8 @@ func init() {
 // GstLaunch is a wrapper of GstPipeline structured from launch string.
 type GstLaunch struct {
 	cCtx    *C.Context
-	active  bool
-	closed  bool
+	active  atomic.Value // bool
+	closed  atomic.Value // bool
 	cbEOS   func(*GstLaunch)
 	cbError func(*GstLaunch, *gst.Element, string, string)
 	cbState func(*GstLaunch, gst.State, gst.State, gst.State)
@@ -48,12 +49,13 @@ func New(launch string) (*GstLaunch, error) {
 	defer C.free(unsafe.Pointer(cLaunch))
 
 	l := &GstLaunch{
-		active:  false,
 		cbEOS:   nil,
 		cbError: nil,
 		cbState: nil,
 		mu:      sync.RWMutex{},
 	}
+	l.active.Store(false)
+	l.closed.Store(false)
 
 	cPointerMapMutex.Lock()
 	id := cPointerMapIndex
@@ -82,10 +84,10 @@ func getNumCtx() int {
 }
 
 func (l *GstLaunch) unref() error {
-	if l.closed {
+	if l.closed.Load().(bool) {
 		return errClosed
 	}
-	l.closed = true
+	l.closed.Store(true)
 	go func() {
 		time.Sleep(10 * time.Millisecond)
 		C.pipelineUnref(l.cCtx)
@@ -115,7 +117,7 @@ func MustNew(launch string) *GstLaunch {
 
 // RegisterErrorCallback registers error message handler callback.
 func (l *GstLaunch) RegisterErrorCallback(f func(*GstLaunch, *gst.Element, string, string)) error {
-	if l.closed {
+	if l.closed.Load().(bool) {
 		return errClosed
 	}
 	l.mu.Lock()
@@ -126,7 +128,7 @@ func (l *GstLaunch) RegisterErrorCallback(f func(*GstLaunch, *gst.Element, strin
 
 // RegisterEOSCallback registers EOS message handler callback.
 func (l *GstLaunch) RegisterEOSCallback(f func(*GstLaunch)) error {
-	if l.closed {
+	if l.closed.Load().(bool) {
 		return errClosed
 	}
 	l.mu.Lock()
@@ -137,7 +139,7 @@ func (l *GstLaunch) RegisterEOSCallback(f func(*GstLaunch)) error {
 
 // RegisterStateCallback registers state update message handler callback.
 func (l *GstLaunch) RegisterStateCallback(f func(*GstLaunch, gst.State, gst.State, gst.State)) error {
-	if l.closed {
+	if l.closed.Load().(bool) {
 		return errClosed
 	}
 	l.mu.Lock()
@@ -210,18 +212,18 @@ func (l *GstLaunch) setState(o, n, p gst.State) {
 	}
 	switch n {
 	case gst.StatePlaying:
-		l.active = true
+		l.active.Store(true)
 	case gst.StateNull:
 		l.unref()
-		l.active = false
+		l.active.Store(false)
 	default:
-		l.active = false
+		l.active.Store(false)
 	}
 }
 
 // Start makes the pipeline playing.
 func (l *GstLaunch) Start() error {
-	if l.closed {
+	if l.closed.Load().(bool) {
 		return errClosed
 	}
 	C.pipelineStart(l.cCtx)
@@ -230,7 +232,7 @@ func (l *GstLaunch) Start() error {
 
 // Kill stops the pipeline and free resources.
 func (l *GstLaunch) Kill() error {
-	if l.closed {
+	if l.closed.Load().(bool) {
 		return errClosed
 	}
 	C.pipelineStop(l.cCtx)
@@ -244,15 +246,15 @@ func (l *GstLaunch) Active() bool {
 	if l == nil {
 		return false
 	}
-	if l.closed {
+	if l.closed.Load().(bool) {
 		return false
 	}
-	return l.active
+	return l.active.Load().(bool)
 }
 
 // GetElement finds GstElement by the name.
 func (l *GstLaunch) GetElement(name string) (*gst.Element, error) {
-	if l.closed {
+	if l.closed.Load().(bool) {
 		return nil, errClosed
 	}
 	cName := C.CString(name)
@@ -267,7 +269,7 @@ func (l *GstLaunch) GetElement(name string) (*gst.Element, error) {
 
 // GetAllElements returns all GstElement in the pipeline.
 func (l *GstLaunch) GetAllElements() ([]*gst.Element, error) {
-	if l.closed {
+	if l.closed.Load().(bool) {
 		return nil, errClosed
 	}
 	var ret []*gst.Element
