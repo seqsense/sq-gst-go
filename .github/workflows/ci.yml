@@ -21,8 +21,7 @@ jobs:
           go-version: ${{ matrix.go-version }}
       - name: Install dependencies
         run: |
-          apt-get update \
-          && apt-get install \
+          sudo apt-get install \
             gstreamer1.0-plugins-base \
             gstreamer1.0-plugins-bad \
             libglib2.0-dev \
