@@ -7,7 +7,7 @@ on:
 
 jobs:
   ci:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -22,6 +22,8 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update -qq
+          sudo apt-get purge -y \
+            libunwind-14-dev  
           sudo apt-get install \
             gstreamer1.0-plugins-base \
             gstreamer1.0-plugins-bad \
