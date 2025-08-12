@@ -45,9 +45,7 @@ package gst
 // GValue* getProperty(void* element, const char* name)
 // {
 //   g_object_ref(element);
-//   GObjectClass klass;
-//   klass.g_type_class.g_type = G_OBJECT_TYPE(element);
-//   GParamSpec* pspec = g_object_class_find_property(&klass, name);
+//   GParamSpec* pspec = g_object_class_find_property(G_OBJECT_GET_CLASS(element), name);
 //   if (pspec == NULL)
 //   {
 //     g_object_unref(element);
