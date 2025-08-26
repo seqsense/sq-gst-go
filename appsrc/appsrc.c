@@ -23,8 +23,12 @@
 
 void pushBuffer(void* element, void* buffer, int len)
 {
-  GstBuffer* buffer_gst =
-      gst_buffer_new_wrapped(g_memdup2(buffer, len), len);
+#if GLIB_CHECK_VERSION(2, 68, 0)
+  gpointer mem = g_memdup2(buffer, len);
+#else
+  gpointer mem = g_memdup(buffer, len);
+#endif
+  GstBuffer* buffer_gst = gst_buffer_new_wrapped(mem, len);
   gst_app_src_push_buffer(GST_APP_SRC(element), buffer_gst);
 }
 
