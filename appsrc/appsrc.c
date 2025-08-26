@@ -24,7 +24,7 @@
 void pushBuffer(void* element, void* buffer, int len)
 {
   GstBuffer* buffer_gst =
-      gst_buffer_new_wrapped(g_memdup(buffer, len), len);
+      gst_buffer_new_wrapped(g_memdup2(buffer, len), len);
   gst_app_src_push_buffer(GST_APP_SRC(element), buffer_gst);
 }
 
